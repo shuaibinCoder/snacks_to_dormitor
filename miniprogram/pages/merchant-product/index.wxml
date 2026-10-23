@@ -1,0 +1,15 @@
+<view class="page product-edit-page">
+  <view class="preview-product card"><image wx:if="{{image}}" class="preview-image preview-photo" src="{{image}}" mode="aspectFill"></image><view wx:else class="preview-image">{{emoji}}</view><view><view class="preview-name">{{name || '商品名称'}}</view><view class="preview-meta">{{category}} · 库存 {{stock || 0}}</view><view class="preview-price">¥{{priceYuan || '0.00'}}</view></view></view>
+  <view class="upload-row card" bindtap="chooseImage"><view class="upload-icon">📷</view><view><view class="upload-title">{{image ? '更换商品图片' : '上传商品图片'}}</view><view class="upload-desc">{{uploading ? '正在保存图片…' : '建议使用清晰的正方形实拍图'}}</view></view><text class="upload-arrow">›</text></view>
+  <view class="section-label">或者选择商品图标</view>
+  <view class="emoji-grid card"><view class="emoji-item {{emoji === item ? 'selected' : ''}}" wx:for="{{emojis}}" wx:key="*this" data-emoji="{{item}}" bindtap="selectEmoji">{{item}}</view></view>
+  <view class="section-label">商品信息</view>
+  <view class="form-card">
+    <view class="form-row"><text class="form-label">商品名称</text><input class="form-input" maxlength="24" placeholder="如：冰镇可乐500ml" value="{{name}}" data-field="name" bindinput="onField" /></view>
+    <view class="form-row"><text class="form-label">商品分类</text><picker class="picker" range="{{categories}}" value="{{categoryIndex}}" bindchange="onCategory"><view>{{category}} ›</view></picker></view>
+    <view class="form-row"><text class="form-label">售价</text><input class="form-input" type="digit" placeholder="0.00" value="{{priceYuan}}" data-field="priceYuan" bindinput="onField" /><text class="unit">元</text></view>
+    <view class="form-row"><text class="form-label">库存</text><input class="form-input" type="number" placeholder="0" value="{{stock}}" data-field="stock" bindinput="onField" /><text class="unit">件</text></view>
+  </view>
+  <view class="stock-tip">库存会在同学提交订单时扣减，订单取消或被拒绝后自动恢复。</view>
+</view>
+<view class="fixed-bottom"><view class="primary-btn" bindtap="save">{{saving ? '保存中…' : '保存商品'}}</view></view>

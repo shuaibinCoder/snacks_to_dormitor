@@ -1,0 +1,39 @@
+<view wx:if="{{order}}" class="page detail-page">
+  <view wx:if="{{created}}" class="created-banner"><text>✓</text><view><view class="created-title">订单提交成功</view><view>等商家接单，商品送到后再线下付款</view></view></view>
+
+  <view class="status-card card">
+    <view><view class="detail-status">{{order.statusText}}</view><view class="status-desc">{{order.status === 'CREATED' ? '商家正在确认库存，请稍等' : order.status === 'DELIVERED' ? '商品已送达，请确认并线下付款' : '订单状态有更新'}}</view></view>
+    <view class="status-emoji">{{order.status === 'COMPLETED' ? '🎉' : order.status === 'CANCELED' || order.status === 'REJECTED' ? '🧾' : '🛵'}}</view>
+  </view>
+
+  <view class="card contact-card">
+    <view class="address-icon">📍</view><view class="address-main"><view class="location">{{order.location || '到店自取'}}</view><view class="contact">{{order.contactName}}　{{order.phone}} · {{order.deliveryMethod}}</view></view>
+    <view wx:if="{{merchantMode}}" class="phone-btn" bindtap="callMerchant">☎</view>
+  </view>
+
+  <view class="card goods-card">
+    <view class="shop-line"><text>{{order.storeLogoEmoji}}</text><text>{{order.storeName}}</text></view>
+    <view class="detail-item" wx:for="{{order.items}}" wx:key="productId"><image wx:if="{{item.image}}" class="detail-image detail-photo" src="{{item.image}}" mode="aspectFill"></image><view wx:else class="detail-image">{{item.emoji}}</view><view class="detail-name">{{item.name}}</view><text>×{{item.quantity}}</text><text class="detail-price">¥{{item.subtotalText}}</text></view>
+    <view class="summary-line"><text>商品金额</text><text>¥{{order.goodsAmountText}}</text></view>
+    <view class="summary-line"><text>配送费</text><text>¥{{order.deliveryFeeText}}</text></view>
+    <view class="summary-total"><text>线下应付</text><text>¥{{order.totalText}}</text></view>
+  </view>
+
+  <view class="card info-card">
+    <view class="info-title">订单信息</view>
+    <view class="info-line"><text>订单编号</text><text>{{order.orderNo}}</text></view>
+    <view class="info-line"><text>下单时间</text><text>{{order.createdAtText}}</text></view>
+    <view class="info-line"><text>订单备注</text><text>{{order.note || '无'}}</text></view>
+    <view class="info-line"><text>付款方式</text><text>交付后线下付款</text></view>
+  </view>
+
+  <view class="card timeline-card">
+    <view class="info-title">订单进度</view>
+    <view class="timeline-item" wx:for="{{order.timeline}}" wx:key="time"><text class="dot"></text><text class="timeline-text">{{item.text}}</text><text class="timeline-time">{{item.time}}</text></view>
+  </view>
+</view>
+
+<view wx:if="{{order && action}}" class="fixed-bottom action-bottom">
+  <view wx:if="{{action.secondaryText}}" class="ghost-btn action-secondary" data-status="{{action.secondaryStatus}}" bindtap="updateStatus">{{action.secondaryText}}</view>
+  <view class="primary-btn action-primary {{action.danger ? 'danger-btn' : ''}}" data-status="{{action.status}}" bindtap="updateStatus">{{action.text}}</view>
+</view>

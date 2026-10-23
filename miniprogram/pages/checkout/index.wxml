@@ -1,0 +1,33 @@
+<view wx:if="{{store}}" class="page checkout-page">
+  <view class="offline-tip">
+    <text class="tip-emoji">🤝</text>
+    <view><view class="tip-title">本单无需在线付款</view><view class="tip-text">商品送达后，请与商家当面完成付款</view></view>
+  </view>
+
+  <view class="card delivery-card">
+    <view class="card-title">送达信息</view>
+    <view class="form-row"><text class="form-label">联系人</text><input class="form-input" placeholder="怎么称呼你" value="{{contactName}}" data-field="contactName" bindinput="onField" /></view>
+    <view class="form-row"><text class="form-label">手机号</text><input class="form-input" type="number" maxlength="11" placeholder="方便商家联系" value="{{phone}}" data-field="phone" bindinput="onField" /></view>
+    <view class="form-row"><text class="form-label">交付方式</text><picker class="picker" range="{{methods}}" value="{{methodIndex}}" bindchange="onMethod"><view>{{methods[methodIndex]}} <text>›</text></view></picker></view>
+    <view class="form-row"><text class="form-label">送达位置</text><input class="form-input" placeholder="如：3楼307 / 3楼楼梯口" value="{{location}}" data-field="location" bindinput="onField" /></view>
+  </view>
+
+  <view class="card order-card">
+    <view class="shop-title"><text class="shop-logo">{{store.logoEmoji}}</text>{{store.name}}</view>
+    <view class="checkout-item" wx:for="{{items}}" wx:key="_id">
+      <image wx:if="{{item.image}}" class="item-image item-photo" src="{{item.image}}" mode="aspectFill"></image><view wx:else class="item-image">{{item.emoji}}</view><view class="item-name">{{item.name}}</view><text class="item-qty">×{{item.quantity}}</text><text class="item-price">¥{{item.priceText}}</text>
+    </view>
+    <view class="fee-row"><text>商品金额</text><text>¥{{goodsTotal}}</text></view>
+    <view class="fee-row"><text>配送费</text><text>{{store.deliveryFee ? '¥' + store.deliveryFeeText : '免配送费'}}</text></view>
+    <view class="total-row">合计 <text>¥{{total}}</text></view>
+  </view>
+
+  <view class="card note-card"><text class="note-label">订单备注</text><input class="note-input" placeholder="口味、交付时间等告诉商家" value="{{note}}" data-field="note" bindinput="onField" /></view>
+
+  <view class="safe-note">提交订单代表同意由商家提供商品及配送服务；平台不代收款。</view>
+</view>
+
+<view class="fixed-bottom checkout-bottom">
+  <view class="pay-copy"><text>线下应付</text><text class="pay-total">¥{{total}}</text></view>
+  <view class="submit-btn {{submitting ? 'submitting' : ''}}" bindtap="submitOrder">{{submitting ? '提交中…' : '提交订单'}}</view>
+</view>

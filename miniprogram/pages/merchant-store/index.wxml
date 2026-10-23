@@ -1,0 +1,22 @@
+<view class="page apply-page">
+  <view wx:if="{{!store}}" class="intro-card">
+    <view class="intro-tag">免费开店 · MVP体验版</view><view class="intro-title">创建你的宿舍小店</view><view class="intro-desc">设置店名、商品和库存，把店名或分享卡片发给同学即可开始接单。</view>
+  </view>
+  <view class="section-label">基本信息</view>
+  <view class="form-card">
+    <view class="form-row"><text class="form-label">店铺名称</text><input class="form-input" maxlength="20" placeholder="同学会用它搜索你" value="{{name}}" data-field="name" bindinput="onField" /></view>
+    <view class="form-row"><text class="form-label">经营者</text><input class="form-input" maxlength="10" placeholder="真实姓名" value="{{ownerName}}" data-field="ownerName" bindinput="onField" /></view>
+    <view class="form-row"><text class="form-label">联系电话</text><input class="form-input" type="number" maxlength="11" placeholder="处理订单使用" value="{{phone}}" data-field="phone" bindinput="onField" /></view>
+    <view class="form-row"><text class="form-label">营业时间</text><input class="form-input" placeholder="如 19:00 - 00:00" value="{{businessHours}}" data-field="businessHours" bindinput="onField" /></view>
+  </view>
+  <view class="section-label">配送设置</view>
+  <view class="form-card">
+    <view class="form-row"><text class="form-label">预计送达</text><input class="form-input" type="number" placeholder="分钟" value="{{deliveryMinutes}}" data-field="deliveryMinutes" bindinput="onField" /><text class="unit">分钟</text></view>
+    <view class="form-row"><text class="form-label">起送金额</text><input class="form-input" type="digit" placeholder="0" value="{{minimumOrderYuan}}" data-field="minimumOrderYuan" bindinput="onField" /><text class="unit">元</text></view>
+    <view class="form-row"><text class="form-label">配送费</text><input class="form-input" type="digit" placeholder="0" value="{{deliveryFeeYuan}}" data-field="deliveryFeeYuan" bindinput="onField" /><text class="unit">元</text></view>
+  </view>
+  <view class="section-label">店铺公告</view>
+  <view class="form-card"><textarea class="form-textarea" maxlength="80" placeholder="告诉同学主营商品、配送说明等" value="{{notice}}" data-field="notice" bindinput="onField" /><view class="counter">{{notice.length}}/80</view></view>
+  <view class="agreement">提交代表你承诺商品来源正规、未过期，并遵守平台禁售规则及所在学校管理规定。</view>
+</view>
+<view class="fixed-bottom"><view class="primary-btn" bindtap="save">{{saving ? '保存中…' : (store ? '保存设置' : '创建店铺')}}</view></view>

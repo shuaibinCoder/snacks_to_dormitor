@@ -1,0 +1,19 @@
+<view class="tabs">
+  <view class="tab {{activeTab === index ? 'active' : ''}}" wx:for="{{tabs}}" wx:key="*this" data-index="{{index}}" bindtap="switchTab">{{item}}<text wx:if="{{activeTab === index}}" class="tab-line"></text></view>
+</view>
+<view class="page order-list-page">
+  <view wx:if="{{displayOrders.length}}" class="order-list">
+    <view class="order-card card" wx:for="{{displayOrders}}" wx:key="_id" data-id="{{item._id}}" bindtap="openOrder">
+      <view class="order-head"><view class="store-title"><text class="mini-logo">{{item.storeLogoEmoji}}</text>{{item.storeName}} <text class="chevron">›</text></view><text class="status-pill {{item.statusClass}}">{{item.statusText}}</text></view>
+      <view class="order-goods">
+        <view class="goods-icons"><view class="goods-icon" wx:for="{{item.items}}" wx:key="productId" wx:for-item="good" wx:if="{{index < 4}}"><image wx:if="{{good.image}}" class="goods-photo" src="{{good.image}}" mode="aspectFill"></image><text wx:else>{{good.emoji}}</text></view></view>
+        <view class="goods-summary"><view class="goods-names">{{item.items[0].name}}{{item.items.length > 1 ? ' 等' + item.items.length + '件' : ''}}</view><view class="order-time">{{item.createdAtText}}</view></view>
+        <view class="order-total"><text>¥{{item.totalText}}</text><text class="total-hint">线下付款</text></view>
+      </view>
+      <view class="order-foot"><text>送至：{{item.location || '到店自取'}}</text><text class="detail-link">查看详情</text></view>
+    </view>
+  </view>
+  <view wx:else class="empty">
+    <text class="empty-icon">🧾</text><view>{{loading ? '正在加载订单…' : '还没有订单'}}</view><view wx:if="{{!loading}}" class="go-shop" bindtap="goHome">去找一家小店</view>
+  </view>
+</view>

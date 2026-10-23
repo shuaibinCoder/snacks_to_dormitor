@@ -1,0 +1,20 @@
+<view class="manage-tabs"><view class="manage-tab {{activeTab === 'products' ? 'active' : ''}}" data-tab="products" bindtap="switchTab">商品库存</view><view class="manage-tab {{activeTab === 'orders' ? 'active' : ''}}" data-tab="orders" bindtap="switchTab">订单管理<text wx:if="{{orders.length}}">{{orders.length}}</text></view></view>
+<view class="page manage-page">
+  <block wx:if="{{activeTab === 'products'}}">
+    <view class="product-summary"><view><text>{{products.length}}</text><label>全部商品</label></view><view><text>{{products.length}}</text><label>库存记录</label></view><view class="add-product" bindtap="editProduct">＋ 添加商品</view></view>
+    <view wx:if="{{products.length}}" class="merchant-product-list">
+      <view class="merchant-product card" wx:for="{{products}}" wx:key="_id">
+        <image wx:if="{{item.image}}" class="mp-image mp-photo" src="{{item.image}}" mode="aspectFill"></image><view wx:else class="mp-image">{{item.emoji}}</view><view class="mp-main" data-id="{{item._id}}" bindtap="editProduct"><view class="mp-name">{{item.name}}</view><view class="mp-meta">{{item.category}} · 已售{{item.sold}}</view><view class="mp-bottom"><text class="price"><text class="price-symbol">¥</text>{{item.priceText}}</text><text class="stock {{item.stock <= 3 ? 'low' : ''}}">库存 {{item.stock}}</text></view></view><view class="toggle {{item.status === 'ON' ? 'on' : ''}}" data-id="{{item._id}}" catchtap="toggleProduct"><text>{{item.status === 'ON' ? '上架' : '下架'}}</text></view>
+      </view>
+    </view>
+    <view wx:else class="empty"><text class="empty-icon">📦</text><view>还没有商品</view><view class="add-empty" bindtap="editProduct">添加第一个商品</view></view>
+    <view class="floating-add" bindtap="editProduct">＋</view>
+  </block>
+
+  <block wx:else>
+    <view wx:if="{{orders.length}}" class="merchant-orders">
+      <view class="m-order card" wx:for="{{orders}}" wx:key="_id" data-id="{{item._id}}" bindtap="openOrder"><view class="mo-head"><text>#{{item.orderNo}}</text><text class="status-pill {{item.statusClass}}">{{item.statusText}}</text></view><view class="mo-address"><text>📍</text><view><view>{{item.location || '到店自取'}}</view><text>{{item.contactName}} {{item.phone}}</text></view></view><view class="mo-foot"><text>{{item.items.length}}件商品 · {{item.createdAtText}}</text><text class="mo-total">¥{{item.totalText}} ›</text></view></view>
+    </view>
+    <view wx:else class="empty"><text class="empty-icon">🧾</text>还没有订单，快把店铺分享给同学吧</view>
+  </block>
+</view>

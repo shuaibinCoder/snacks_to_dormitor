@@ -1,0 +1,19 @@
+<view wx:if="{{store}}" class="merchant-page">
+  <view class="dashboard-hero">
+    <view class="dash-head"><view class="dash-store"><view class="dash-logo">{{store.logoEmoji}}</view><view><view class="dash-name">{{store.name}}</view><view class="dash-state">{{store.isOpen ? '● 正在营业' : '○ 已打烊'}}</view></view></view><view class="switch-btn {{store.isOpen ? 'open-btn' : ''}}" bindtap="toggleOpen">{{store.isOpen ? '打烊' : '开始营业'}}</view></view>
+    <view class="today-label">今日成交额 <text>仅统计已完成订单</text></view><view class="today-amount"><text>¥</text>{{todayAmountText}}</view>
+    <view class="stats-row"><view><text>{{stats.todayOrders}}</text><label>今日订单</label></view><view><text>{{stats.pending}}</text><label>待接单</label></view><view><text>{{stats.delivering}}</text><label>履约中</label></view><view><text>{{stats.lowStock}}</text><label>低库存</label></view></view>
+  </view>
+
+  <view class="dashboard-body">
+    <view wx:if="{{stats.pending}}" class="pending-alert" data-url="/pages/merchant-products/index?tab=orders" bindtap="go"><text class="bell">🔔</text><view><view class="alert-title">有 {{stats.pending}} 个新订单待处理</view><view class="alert-desc">请尽快接单，别让同学久等</view></view><text class="alert-arrow">›</text></view>
+    <view class="section-title dash-title">经营工具</view>
+    <view class="tool-grid">
+      <view class="tool-card card" data-url="/pages/merchant-products/index?tab=orders" bindtap="go"><view class="tool-icon order-icon">🧾</view><view class="tool-name">订单管理</view><view class="tool-desc">接单与配送</view><text wx:if="{{stats.pending}}" class="badge">{{stats.pending}}</text></view>
+      <view class="tool-card card" data-url="/pages/merchant-products/index" bindtap="go"><view class="tool-icon product-icon">📦</view><view class="tool-name">商品库存</view><view class="tool-desc">上下架和补货</view></view>
+      <view class="tool-card card" data-url="/pages/merchant-store/index" bindtap="go"><view class="tool-icon setting-icon">⚙️</view><view class="tool-name">店铺设置</view><view class="tool-desc">店名与配送</view></view>
+      <button class="tool-card card share-card" open-type="share"><view class="tool-icon share-icon">📣</view><view class="tool-name">分享店铺</view><view class="tool-desc">发给同学下单</view></button>
+    </view>
+    <view class="preview card" bindtap="previewStore"><view><view class="preview-title">查看顾客端店铺</view><view class="preview-desc">检查商品展示和营业状态</view></view><text>去预览 ›</text></view>
+  </view>
+</view>

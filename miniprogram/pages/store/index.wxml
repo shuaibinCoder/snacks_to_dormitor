@@ -1,0 +1,45 @@
+<view wx:if="{{store}}" class="store-page">
+  <view class="store-hero">
+    <view class="store-brand">
+      <view class="big-logo">{{store.logoEmoji}}</view>
+      <view class="brand-info">
+        <view class="brand-row"><text class="brand-name">{{store.name}}</text><text class="open-state {{store.isOpen ? 'open' : 'closed'}}">{{store.isOpen ? '营业中' : '已打烊'}}</text></view>
+        <view class="brand-meta">★ {{store.rating}} · 月售{{store.monthlySales}} · 约{{store.deliveryMinutes}}分钟</view>
+        <view class="brand-hours">营业时间 {{store.businessHours}}</view>
+      </view>
+    </view>
+    <view class="notice"><text class="notice-label">公告</text><text>{{store.notice}}</text></view>
+    <view class="service-tags"><text>{{store.minimumOrder ? store.minimumOrderText + '元起送' : '0元起送'}}</text><text>{{store.deliveryFeeText}}</text><text>线下付款</text></view>
+  </view>
+
+  <view class="menu-wrap">
+    <scroll-view class="categories" scroll-y enhanced show-scrollbar="{{false}}">
+      <view class="category {{activeCategory === item ? 'active' : ''}}" wx:for="{{categories}}" wx:key="*this" data-category="{{item}}" bindtap="selectCategory">{{item}}</view>
+    </scroll-view>
+    <scroll-view class="products" scroll-y enhanced show-scrollbar="{{false}}">
+      <view class="product" wx:for="{{displayProducts}}" wx:key="_id">
+        <image wx:if="{{item.image}}" class="product-image product-photo" src="{{item.image}}" mode="aspectFill"></image><view wx:else class="product-image">{{item.emoji}}</view>
+        <view class="product-info">
+          <view class="product-name">{{item.name}}</view>
+          <view class="product-sub">已售{{item.sold}} · 剩余{{item.stock}}</view>
+          <view class="product-bottom">
+            <view class="price"><text class="price-symbol">¥</text>{{item.priceText}}</view>
+            <view class="stepper">
+              <view wx:if="{{item.cartQuantity}}" class="step-btn minus" data-id="{{item._id}}" data-delta="-1" bindtap="changeCart">−</view>
+              <text wx:if="{{item.cartQuantity}}" class="quantity">{{item.cartQuantity}}</text>
+              <view class="step-btn plus {{item.stock ? '' : 'disabled'}}" data-id="{{item._id}}" data-delta="1" bindtap="changeCart">＋</view>
+            </view>
+          </view>
+        </view>
+      </view>
+      <view class="menu-end">— 只有这么多啦 —</view>
+    </scroll-view>
+  </view>
+
+  <view class="cart-bar" bindtap="goCheckout">
+    <view class="cart-icon">🛍️<text wx:if="{{cartCount}}" class="cart-count">{{cartCount}}</text></view>
+    <view class="cart-price"><text class="cart-price-main">¥{{cartTotal}}</text><text class="cart-hint">到货后线下付款</text></view>
+    <view class="checkout-btn {{!cartCount || !store.isOpen ? 'disabled-checkout' : ''}}">{{store.isOpen ? (cartCount ? '去结算' : '选点想吃的') : '店铺已打烊'}}</view>
+  </view>
+</view>
+<view wx:else class="empty"><text class="empty-icon">🏪</text>{{loading ? '正在进入小店…' : '店铺不存在'}}</view>
