@@ -38,9 +38,9 @@
 
 ### 启用云开发
 
-1. 在微信开发者工具中创建云开发环境。
-2. 将环境 ID 填入 `miniprogram/app.js` 的 `globalData.env`。
-3. 将 `globalData.useCloud` 改为 `true`。
+1. 当前项目已配置云环境 `smooth-kiwi-d3gjwm74v84784b65`。
+2. `miniprogram/app.js` 中的 `globalData.useCloud` 已设为 `true`。
+3. 确认微信开发者工具当前选择的是同一个云环境。
 4. 上传并部署 `cloudfunctions/snacksApi`，选择“云端安装依赖”。
 5. 在云开发控制台创建以下集合，或调用云函数的 `initCollections` 操作：
    - `stores`
@@ -64,3 +64,52 @@
 ## MVP说明
 
 当前版本不接入在线支付，订单金额仅用于双方交付时线下结算。正式上线前仍需确认小程序主体、服务类目、食品经营资质、学校管理规定、隐私政策和商家审核流程。
+
+## 商家审批与平台管理员初始化
+
+最新版已启用角色、商家申请、线下付款登记和平台审核流程。部署新版云函数后会自动创建：
+
+- `users`
+- `platform_users`
+- `merchant_applications`
+- `merchant_payments`
+- `audit_logs`
+- `system_dictionaries`：角色、状态、操作等固定枚举的中文说明
+- `system_collection_schemas`：每个数据库集合和字段的中文说明
+
+### 初始化第一个超级管理员
+
+1. 重新部署 `cloudfunctions/snacksApi` 并编译小程序。
+2. 用开发者自己的微信进入“我的”。
+3. 点击“复制我的身份ID”。
+4. 在云开发控制台的 `platform_users` 集合手工新增一条记录：
+
+```json
+{
+  "openid": "粘贴开发者自己的身份ID",
+  "role": "SUPER_ADMIN",
+  "roleLabel": "超级管理员",
+  "displayName": "平台负责人",
+  "phone": "",
+  "status": "ACTIVE",
+  "statusLabel": "正常",
+  "createdAt": 1792684800000,
+  "updatedAt": 1792684800000
+}
+```
+
+`createdAt` 和 `updatedAt` 可填写当前毫秒时间戳。保存后重新进入“我的”，即可看到“平台管理后台”。
+
+### 新的商家上线流程
+
+```text
+提交入驻申请
+→ 平台电话联系
+→ 设置待线下付款
+→ 平台确认线下收款
+→ 管理员最终审核
+→ 创建店铺并授予商家权限
+→ 店铺上线
+```
+
+未经审核的微信用户不能进入商家工作台，也不会在平台生成公开店铺。

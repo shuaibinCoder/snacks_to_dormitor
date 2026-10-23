@@ -1,0 +1,50 @@
+<view class="page apply-page">
+  <view wx:if="{{loading}}" class="empty"><text class="empty-icon">⏳</text>正在加载入驻信息…</view>
+
+  <block wx:else>
+    <view wx:if="{{application}}" class="status-card status-{{application.statusTone}}">
+      <view class="status-top"><view><view class="status-eyebrow">MERCHANT APPLICATION</view><view class="status-title">{{application.statusText}}</view></view><view class="status-icon">{{application.status === 'APPROVED' ? '🎉' : application.status === 'REJECTED' ? '📄' : '☎️'}}</view></view>
+      <view class="status-message">{{application.publicMessage}}</view>
+      <view wx:if="{{application.status === 'PAYMENT_PENDING'}}" class="payment-box"><text>线下入驻费用</text><view>¥{{application.feeAmountText}}</view><text>{{application.paymentInstruction}}</text></view>
+      <view class="progress">
+        <view class="progress-item {{application.currentStep >= 1 ? 'done' : ''}}"><text>1</text><label>提交</label></view>
+        <view class="progress-line {{application.currentStep >= 2 ? 'done-line' : ''}}"></view>
+        <view class="progress-item {{application.currentStep >= 2 ? 'done' : ''}}"><text>2</text><label>联系</label></view>
+        <view class="progress-line {{application.currentStep >= 3 ? 'done-line' : ''}}"></view>
+        <view class="progress-item {{application.currentStep >= 3 ? 'done' : ''}}"><text>3</text><label>付款</label></view>
+        <view class="progress-line {{application.currentStep >= 5 ? 'done-line' : ''}}"></view>
+        <view class="progress-item {{application.currentStep >= 5 ? 'done' : ''}}"><text>4</text><label>上线</label></view>
+      </view>
+      <view wx:if="{{application.status === 'APPROVED'}}" class="primary-btn approved-btn" bindtap="goMerchant">进入商家工作台</view>
+      <view wx:elif="{{application.status === 'PAYMENT_PENDING'}}" class="secondary-btn contact-btn" bindtap="callPlatform">查看付款说明</view>
+    </view>
+
+    <block wx:if="{{editable}}">
+      <view class="intro-card" wx:if="{{!application}}"><view class="intro-tag">PLATFORM REVIEW</view><view class="intro-title">申请开设宿舍小店</view><view class="intro-desc">提交后平台会电话联系你。完成线下付款并通过审核后，店铺才会正式上线。</view></view>
+      <view wx:else class="edit-tip">平台需要你补充或修改资料，重新提交后会再次进入审核流程。</view>
+
+      <view class="section-label">申请信息</view>
+      <view class="form-card">
+        <view class="form-row"><text class="form-label">店铺名称</text><input class="form-input" maxlength="20" placeholder="学生搜索使用" value="{{storeName}}" data-field="storeName" bindinput="onField" /></view>
+        <view class="form-row"><text class="form-label">经营者</text><input class="form-input" maxlength="10" placeholder="真实姓名" value="{{ownerName}}" data-field="ownerName" bindinput="onField" /></view>
+        <view class="form-row"><text class="form-label">联系电话</text><input class="form-input" type="number" maxlength="11" placeholder="平台电话联系使用" value="{{phone}}" data-field="phone" bindinput="onField" /></view>
+        <view class="form-row"><text class="form-label">微信号</text><input class="form-input" placeholder="选填" value="{{wechatContact}}" data-field="wechatContact" bindinput="onField" /></view>
+        <view class="form-row"><text class="form-label">主营品类</text><input class="form-input" placeholder="零食、饮料" value="{{categoriesText}}" data-field="categoriesText" bindinput="onField" /></view>
+        <view class="form-row"><text class="form-label">营业时间</text><input class="form-input" value="{{businessHours}}" data-field="businessHours" bindinput="onField" /></view>
+      </view>
+
+      <view class="section-label">经营与配送</view>
+      <view class="form-card">
+        <view class="form-row"><text class="form-label">服务说明</text><input class="form-input" placeholder="如：本栋宿舍配送" value="{{serviceDescription}}" data-field="serviceDescription" bindinput="onField" /></view>
+        <view class="form-row"><text class="form-label">起送金额</text><input class="form-input" type="digit" value="{{minimumOrderYuan}}" data-field="minimumOrderYuan" bindinput="onField" /><text class="unit">元</text></view>
+        <view class="form-row"><text class="form-label">配送费</text><input class="form-input" type="digit" value="{{deliveryFeeYuan}}" data-field="deliveryFeeYuan" bindinput="onField" /><text class="unit">元</text></view>
+        <view class="form-row"><text class="form-label">预计送达</text><input class="form-input" type="number" value="{{deliveryMinutes}}" data-field="deliveryMinutes" bindinput="onField" /><text class="unit">分钟</text></view>
+      </view>
+
+      <view class="section-label">店铺公告</view>
+      <view class="form-card"><textarea class="form-textarea" maxlength="80" placeholder="介绍你的店铺和配送方式" value="{{notice}}" data-field="notice" bindinput="onField" /></view>
+      <view class="agreement">提交后平台将通过电话核实信息。完成线下付款并经管理员审核通过后，才会授予商家权限并上线店铺。</view>
+      <view class="primary-btn submit-btn" bindtap="submit">{{submitting ? '提交中…' : (application ? '重新提交申请' : '提交入驻申请')}}</view>
+    </block>
+  </block>
+</view>

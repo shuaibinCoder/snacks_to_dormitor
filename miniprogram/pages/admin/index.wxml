@@ -1,0 +1,29 @@
+<view wx:if="{{dashboard}}" class="admin-page">
+  <view class="admin-hero">
+    <view class="admin-eyebrow">PLATFORM CONSOLE</view><view class="admin-title">平台管理后台</view><view class="role-pill">{{roleName}}</view>
+    <view class="admin-stats">
+      <view><text>{{dashboard.pendingApplications}}</text><label>处理中申请</label></view>
+      <view><text>{{dashboard.paymentPending}}</text><label>待付款</label></view>
+      <view><text>{{dashboard.approvalPending}}</text><label>待审批</label></view>
+      <view><text>{{dashboard.activeStores}}</text><label>上线店铺</label></view>
+    </view>
+  </view>
+  <view class="page admin-body">
+    <view class="section-title">管理功能</view>
+    <view class="admin-tools">
+      <view class="admin-tool card" data-url="/pages/admin-applications/index" bindtap="go"><view class="tool-icon orange-bg">📋</view><view class="tool-main"><view>商家申请</view><text>联系、付款和最终审核</text></view><view wx:if="{{dashboard.pendingApplications}}" class="count">{{dashboard.pendingApplications}}</view><text class="arrow">›</text></view>
+      <view class="admin-tool card" data-url="/pages/admin-stores/index" bindtap="go"><view class="tool-icon green-bg">🏪</view><view class="tool-main"><view>店铺管理</view><text>查看、暂停和恢复店铺</text></view><text class="arrow">›</text></view>
+      <view wx:if="{{canManageTeam}}" class="admin-tool card" data-url="/pages/admin-team/index" bindtap="go"><view class="tool-icon blue-bg">👥</view><view class="tool-main"><view>平台人员</view><text>配置运营和管理员权限</text></view><text class="arrow">›</text></view>
+      <view class="admin-tool card" data-url="/pages/admin-dictionaries/index" bindtap="go"><view class="tool-icon purple-bg">📚</view><view class="tool-main"><view>数据库中文说明</view><text>查看角色、状态和操作枚举含义</text></view><text class="arrow">›</text></view>
+    </view>
+
+    <view class="section-title log-title">最近操作</view>
+    <view class="card log-card">
+      <block wx:if="{{dashboard.recentLogs.length}}">
+        <view class="log-item" wx:for="{{dashboard.recentLogs}}" wx:key="_id"><view class="log-dot"></view><view class="log-main"><view>{{item.actionLabel || item.action}}</view><text>{{item.targetTypeLabel || item.targetType}} · {{item.createdAtText}}</text></view></view>
+      </block>
+      <view wx:if="{{!dashboard.recentLogs.length}}" class="no-log">还没有平台操作记录</view>
+    </view>
+  </view>
+</view>
+<view wx:if="{{!dashboard}}" class="empty"><text class="empty-icon">🔐</text>{{loading ? '正在验证管理权限…' : '没有管理权限'}}</view>

@@ -1,0 +1,41 @@
+<view class="tabs"><view class="tab {{activeTab === 'schemas' ? 'active' : ''}}" data-tab="schemas" bindtap="switchTab">集合与字段</view><view class="tab {{activeTab === 'enums' ? 'active' : ''}}" data-tab="enums" bindtap="switchTab">固定枚举</view></view>
+<view class="page dictionary-page">
+  <view class="dictionary-intro">
+    <view class="intro-title">数据库中文说明</view>
+    <view class="intro-desc">数据库使用稳定的英文编码供程序判断，同时保存对应的中文名称。这里可以查看每个集合、字段、角色、状态和操作编码的含义。</view>
+    <view wx:if="{{canSync}}" class="sync-btn" bindtap="syncLabels">{{syncing ? '正在同步…' : '同步中文说明到现有数据'}}</view>
+  </view>
+
+  <block wx:if="{{activeTab === 'schemas'}}">
+    <view wx:if="{{schemas.length}}" class="dictionary-list">
+      <view class="dictionary-card card" wx:for="{{schemas}}" wx:key="_id">
+        <view class="dictionary-head"><view><view class="dictionary-name">{{item.name}}</view><view class="dictionary-code">{{item.collection}}</view></view><view class="item-count">{{item.fields.length}}字段</view></view>
+        <view class="dictionary-description">{{item.description}}</view>
+        <view class="enum-table">
+          <view class="enum-row" wx:for="{{item.fields}}" wx:key="field" wx:for-item="fieldItem">
+            <view class="enum-top"><text class="enum-label">{{fieldItem.label}}</text><text class="enum-code">{{fieldItem.field}}</text></view>
+            <view class="field-meta"><text>{{fieldItem.type}}</text><text wx:if="{{fieldItem.enumType}}">枚举：{{fieldItem.enumType}}</text></view>
+            <view class="enum-description">{{fieldItem.description}}</view>
+          </view>
+        </view>
+      </view>
+    </view>
+    <view wx:if="{{!schemas.length}}" class="empty"><text class="empty-icon">🗃️</text>{{loading ? '正在加载字段说明…' : '暂无字段说明'}}</view>
+  </block>
+
+  <block wx:if="{{activeTab === 'enums'}}">
+    <view wx:if="{{dictionaries.length}}" class="dictionary-list">
+      <view class="dictionary-card card" wx:for="{{dictionaries}}" wx:key="_id">
+        <view class="dictionary-head"><view><view class="dictionary-name">{{item.name}}</view><view class="dictionary-code">{{item.type}}</view></view><view class="item-count">{{item.items.length}}项</view></view>
+        <view class="dictionary-description">{{item.description}}</view>
+        <view class="enum-table">
+          <view class="enum-row" wx:for="{{item.items}}" wx:key="code" wx:for-item="option">
+            <view class="enum-top"><text class="enum-label">{{option.label}}</text><text class="enum-code">{{option.code}}</text></view>
+            <view class="enum-description">{{option.description}}</view>
+          </view>
+        </view>
+      </view>
+    </view>
+    <view wx:if="{{!dictionaries.length}}" class="empty"><text class="empty-icon">📚</text>{{loading ? '正在加载数据字典…' : '暂无数据字典'}}</view>
+  </block>
+</view>

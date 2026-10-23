@@ -1,0 +1,15 @@
+<view class="page team-page">
+  <view class="notice-card">平台人员身份与微信用户的 OPENID 绑定。请让对方在“我的”页面复制身份ID后提供给管理员。</view>
+  <view class="section-title">添加平台人员</view>
+  <view class="form-card add-form">
+    <view class="form-row"><text class="form-label">身份ID</text><input class="form-input" placeholder="粘贴用户OPENID" value="{{openid}}" data-field="openid" bindinput="onField" /></view>
+    <view class="form-row"><text class="form-label">姓名</text><input class="form-input" placeholder="运营人员姓名" value="{{displayName}}" data-field="displayName" bindinput="onField" /></view>
+    <view class="form-row"><text class="form-label">手机号</text><input class="form-input" type="number" placeholder="选填" value="{{phone}}" data-field="phone" bindinput="onField" /></view>
+    <view class="form-row"><text class="form-label">角色</text><picker class="picker" range="{{roleNames}}" value="{{roleIndex}}" bindchange="onRole"><view>{{roleNames[roleIndex]}} ›</view></picker></view>
+    <view class="primary-btn save-btn" bindtap="save">{{saving ? '保存中…' : '添加并授权'}}</view>
+  </view>
+  <view class="section-title list-title">现有平台人员</view>
+  <view class="team-list">
+    <view class="team-card card" wx:for="{{users}}" wx:key="_id"><view class="team-avatar">🛡️</view><view class="team-main"><view>{{item.displayName}}</view><text>{{item.roleName}} · {{item.statusLabel || item.status}}</text><label>{{item.openid}}</label></view></view>
+  </view>
+</view>

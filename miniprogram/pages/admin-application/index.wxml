@@ -1,0 +1,45 @@
+<view wx:if="{{application}}" class="page detail-page">
+  <view class="application-hero card">
+    <view><view class="hero-eyebrow">MERCHANT APPLICATION</view><view class="hero-name">{{application.storeName}}</view><view class="hero-owner">{{application.ownerName}} · {{application.phone}}</view></view>
+    <view class="status-badge tone-{{application.statusTone}}">{{application.statusText}}</view>
+  </view>
+
+  <view class="card contact-card">
+    <view class="card-title">申请人联系方式</view>
+    <view class="info-row"><text>经营者</text><text>{{application.ownerName}}</text></view>
+    <view class="info-row"><text>手机号</text><text>{{application.phone}}</text></view>
+    <view class="info-row"><text>微信号</text><text>{{application.wechatContact || '未填写'}}</text></view>
+    <view class="call-btn" bindtap="callApplicant">☎ 电话联系申请人</view>
+  </view>
+
+  <view class="card info-card">
+    <view class="card-title">店铺申请资料</view>
+    <view class="info-row"><text>主营品类</text><text>{{application.businessCategories}}</text></view>
+    <view class="info-row"><text>营业时间</text><text>{{application.businessHours}}</text></view>
+    <view class="info-row"><text>服务说明</text><text>{{application.serviceDescription || '未填写'}}</text></view>
+    <view class="info-row"><text>店铺公告</text><text>{{application.notice || '未填写'}}</text></view>
+  </view>
+
+  <view wx:if="{{application.status === 'CONTACTED' || application.status === 'PAYMENT_PENDING'}}" class="card payment-form">
+    <view class="card-title">线下入驻费用</view>
+    <view class="form-row"><text class="form-label">金额</text><input class="form-input" type="digit" value="{{feeAmountYuan}}" data-field="feeAmountYuan" bindinput="onField" /><text>元</text></view>
+    <textarea class="payment-textarea" maxlength="120" value="{{paymentInstruction}}" data-field="paymentInstruction" bindinput="onField"></textarea>
+  </view>
+
+  <view wx:if="{{payments.length}}" class="card payment-records">
+    <view class="card-title">付款记录</view>
+    <view class="payment-record" wx:for="{{payments}}" wx:key="_id"><view><text>¥{{item.amountText}}</text><label>{{item.paymentMethodLabel || item.paymentMethod}}</label></view><text>{{item.createdAtText}} · {{item.statusLabel || "已确认"}}</text></view>
+  </view>
+
+  <view class="card message-card"><view class="card-title">申请人当前看到的提示</view><view>{{application.publicMessage}}</view></view>
+
+  <view class="actions-card card">
+    <view class="card-title">处理操作</view>
+    <view wx:if="{{application.status === 'SUBMITTED' || application.status === 'CONTACT_FAILED'}}" class="action-grid"><view class="primary-btn" bindtap="markContacted">标记已联系</view><view class="ghost-btn" bindtap="markContactFailed">联系未成功</view></view>
+    <view wx:if="{{application.status === 'CONTACTED'}}" class="primary-btn" bindtap="setPaymentPending">设置待线下付款</view>
+    <view wx:if="{{application.status === 'PAYMENT_PENDING'}}" class="primary-btn" bindtap="confirmPayment">确认已收到线下付款</view>
+    <view wx:if="{{application.status === 'PAID' && canApprove}}" class="action-grid"><view class="primary-btn" bindtap="approve">审核通过并上线</view><view class="danger-action" bindtap="reject">拒绝申请</view></view>
+    <view wx:if="{{application.status !== 'APPROVED' && application.status !== 'REJECTED'}}" class="text-actions"><text bindtap="requestInfo">要求补充资料</text><text wx:if="{{canApprove}}" bindtap="reject">拒绝申请</text></view>
+    <view wx:if="{{application.status === 'APPROVED'}}" class="completed-tip">✓ 申请已经审核通过，店铺已上线</view>
+  </view>
+</view>

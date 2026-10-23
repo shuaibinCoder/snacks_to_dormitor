@@ -50,8 +50,14 @@ Page({
     wx.navigateTo({ url: `/pages/store/index?id=${event.currentTarget.dataset.id}` })
   },
 
-  goOpenStore() {
-    wx.navigateTo({ url: '/pages/merchant-store/index' })
+  async goOpenStore() {
+    try {
+      const identity = await api.request('getMyIdentity')
+      const approvedStore = identity.store && identity.store.approvalStatus === 'APPROVED'
+      wx.navigateTo({ url: approvedStore ? '/pages/merchant/index' : '/pages/merchant-apply/index' })
+    } catch (error) {
+      wx.showToast({ title: error.message || '身份加载失败', icon: 'none' })
+    }
   },
 
   onShareAppMessage() {

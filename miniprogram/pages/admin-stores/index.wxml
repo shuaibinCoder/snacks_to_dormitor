@@ -1,0 +1,10 @@
+<view class="page stores-page">
+  <view wx:if="{{stores.length}}" class="store-list">
+    <view class="store-card card" wx:for="{{stores}}" wx:key="_id">
+      <view class="store-head"><view class="store-logo">{{item.logoEmoji}}</view><view class="store-main"><view class="store-name">{{item.name}}</view><view class="store-owner">{{item.ownerName}} · {{item.phone}}</view></view><view class="platform-state {{item.platformStatus === 'ACTIVE' ? 'active' : 'suspended'}}">{{item.platformStatus === 'ACTIVE' ? '平台正常' : '平台暂停'}}</view></view>
+      <view class="store-status"><text>审批：{{item.approvalStatusLabel || item.approvalStatus}}</text><text>营业：{{item.businessStatusLabel || item.businessStatus}}</text><text>月售：{{item.monthlySales || 0}}</text></view>
+      <view class="store-actions"><view class="ghost-btn" data-id="{{item._id}}" bindtap="preview">查看店铺</view><view wx:if="{{canManage}}" class="manage-btn {{item.platformStatus === 'ACTIVE' ? 'danger' : 'resume'}}" data-id="{{item._id}}" bindtap="toggle">{{item.platformStatus === 'ACTIVE' ? '暂停店铺' : '恢复店铺'}}</view></view>
+    </view>
+  </view>
+  <view wx:else class="empty"><text class="empty-icon">🏪</text>{{loading ? '正在加载店铺…' : '暂无店铺'}}</view>
+</view>

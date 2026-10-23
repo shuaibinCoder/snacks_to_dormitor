@@ -9,7 +9,14 @@
     "pages/merchant/index",
     "pages/merchant-store/index",
     "pages/merchant-products/index",
-    "pages/merchant-product/index"
+    "pages/merchant-product/index",
+    "pages/merchant-apply/index",
+    "pages/admin/index",
+    "pages/admin-applications/index",
+    "pages/admin-application/index",
+    "pages/admin-stores/index",
+    "pages/admin-team/index",
+    "pages/admin-dictionaries/index"
   ],
   "window": {
     "backgroundColor": "#F7F7F5",

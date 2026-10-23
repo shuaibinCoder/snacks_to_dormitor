@@ -1,0 +1,11 @@
+<scroll-view class="filter-bar" scroll-x show-scrollbar="{{false}}"><view class="filters"><view class="filter {{activeFilter === item.key ? 'active' : ''}}" wx:for="{{filters}}" wx:key="key" data-key="{{item.key}}" bindtap="selectFilter">{{item.text}}</view></view></scroll-view>
+<view class="page list-page">
+  <view wx:if="{{applications.length}}" class="application-list">
+    <view class="application-card card" wx:for="{{applications}}" wx:key="_id" data-id="{{item._id}}" bindtap="openDetail">
+      <view class="application-head"><view><view class="store-name">{{item.storeName}}</view><view class="owner">{{item.ownerName}} · {{item.phone}}</view></view><view class="app-status tone-{{item.statusTone}}">{{item.statusText}}</view></view>
+      <view class="application-info"><text>{{item.businessCategories.join ? item.businessCategories : ''}}</text><text>{{item.serviceDescription || '未填写服务说明'}}</text></view>
+      <view class="application-foot"><text>{{item.updatedAtText}}</text><text>查看处理 ›</text></view>
+    </view>
+  </view>
+  <view wx:else class="empty"><text class="empty-icon">📋</text>{{loading ? '正在加载申请…' : '暂无相关申请'}}</view>
+</view>

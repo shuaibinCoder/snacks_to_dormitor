@@ -5,7 +5,9 @@ const KEYS = {
   products: 'snacks_mvp_products',
   orders: 'snacks_mvp_orders',
   myStoreId: 'snacks_mvp_my_store_id',
-  profile: 'snacks_mvp_profile'
+  profile: 'snacks_mvp_profile',
+  application: 'snacks_mvp_merchant_application',
+  platformUsers: 'snacks_mvp_platform_users'
 }
 
 const now = () => Date.now()
@@ -101,13 +103,18 @@ async function request(action, data = {}) {
   if (cloudEnabled()) {
     let response
     try {
+      const app = getApp()
+      if (action !== 'initCollections' && app.globalData.cloudReady) await app.globalData.cloudReady
       response = await wx.cloud.callFunction({ name: 'snacksApi', data: { action, ...data } })
     } catch (error) {
-      console.warn('Cloud service unavailable, fallback to local data:', error)
-      return localRequest(action, data)
+      console.error(`Cloud action failed: ${action}`, error)
+      const message = error && error.errMsg && error.errMsg.includes('FunctionName')
+        ? '云函数 snacksApi 未部署或部署到了其他环境'
+        : '云服务连接失败，请检查云环境与云函数部署'
+      throw new Error(message)
     }
     if (response.result && response.result.success) return response.result.data
-    throw new Error((response.result && response.result.message) || '云服务请求失败')
+    throw new Error((response.result && response.result.message) || `云服务请求失败：${action}`)
   }
   return localRequest(action, data)
 }
@@ -119,6 +126,57 @@ function localRequest(action, data) {
   let orders = wx.getStorageSync(KEYS.orders) || []
 
   switch (action) {
+    case 'getMyIdentity': {
+      const myStoreId = wx.getStorageSync(KEYS.myStoreId)
+      const myStore = stores.find(item => item._id === myStoreId) || null
+      const application = wx.getStorageSync(KEYS.application) || null
+      const platformUsers = wx.getStorageSync(KEYS.platformUsers) || []
+      const platformUser = platformUsers.find(item => item.openid === 'local_demo_user' && item.status === 'ACTIVE')
+      return {
+        openid: 'local_demo_user',
+        roles: myStore ? ['CUSTOMER', 'MERCHANT_OWNER'] : ['CUSTOMER'],
+        platformRole: platformUser ? platformUser.role : null,
+        permissions: myStore ? ['ORDER_CREATE', 'STORE_MANAGE_SELF'] : ['ORDER_CREATE', 'MERCHANT_APPLY'],
+        merchantApplication: clone(application),
+        store: clone(myStore)
+      }
+    }
+    case 'submitMerchantApplication': {
+      const timestamp = now()
+      const application = Object.assign({}, wx.getStorageSync(KEYS.application) || {}, data.application, {
+        _id: (wx.getStorageSync(KEYS.application) || {})._id || id('application'),
+        applicantOpenid: 'local_demo_user',
+        status: 'SUBMITTED',
+        publicMessage: '申请已提交，平台工作人员将通过电话联系。',
+        submittedAt: timestamp,
+        updatedAt: timestamp,
+        createdAt: (wx.getStorageSync(KEYS.application) || {}).createdAt || timestamp
+      })
+      wx.setStorageSync(KEYS.application, application)
+      return clone(application)
+    }
+    case 'getMyMerchantApplication':
+      return clone(wx.getStorageSync(KEYS.application) || null)
+    case 'getAdminDashboard':
+      return { role: 'SUPER_ADMIN', pendingApplications: 0, paymentPending: 0, approvalPending: 0, activeStores: stores.length, recentLogs: [] }
+    case 'listMerchantApplications': {
+      const application = wx.getStorageSync(KEYS.application)
+      return application ? [clone(application)] : []
+    }
+    case 'listAdminStores':
+      return clone(stores)
+    case 'listPlatformUsers':
+      return clone(wx.getStorageSync(KEYS.platformUsers) || [])
+    case 'savePlatformUser': {
+      const list = wx.getStorageSync(KEYS.platformUsers) || []
+      const input = data.platformUser
+      const index = list.findIndex(item => item.openid === input.openid)
+      const saved = Object.assign({}, index >= 0 ? list[index] : { _id: id('platform') }, input, { updatedAt: now(), createdAt: index >= 0 ? list[index].createdAt : now() })
+      if (index >= 0) list[index] = saved
+      else list.unshift(saved)
+      wx.setStorageSync(KEYS.platformUsers, list)
+      return true
+    }
     case 'listStores': {
       const query = String(data.query || '').trim().toLowerCase()
       return clone(stores.filter(store => store.auditStatus === 'APPROVED' && (!query || store.name.toLowerCase().includes(query) || store.notice.toLowerCase().includes(query))))

@@ -4,12 +4,16 @@ const { decorateStore, decorateProduct, money } = require('../../utils/format')
 Page({
   data: {
     storeId: '', store: null, products: [], categories: [], activeCategory: '全部', displayProducts: [],
-    cartMap: {}, cartItems: [], cartCount: 0, cartTotal: '0.00', loading: true
+    cartMap: {}, cartItems: [], cartCount: 0, cartTotal: '0.00', loading: true, loadError: ''
   },
 
   onLoad(options) {
     this.setData({ storeId: options.id || '' })
     this.loadStore()
+  },
+
+  onShow() {
+    if (this._hasLoaded && this.data.storeId) this.loadStore()
   },
 
   onPullDownRefresh() {
@@ -19,13 +23,15 @@ Page({
   async loadStore() {
     if (!this.data.storeId) return
     try {
+      this.setData({ loadError: '' })
       const result = await api.request('getStore', { storeId: this.data.storeId })
       const products = result.products.map(decorateProduct)
       const categories = ['全部', ...Array.from(new Set(products.map(item => item.category)))]
       wx.setNavigationBarTitle({ title: result.store.name })
+      this._hasLoaded = true
       this.setData({ store: decorateStore(result.store), products, categories, loading: false }, () => this.filterProducts())
     } catch (error) {
-      this.setData({ loading: false })
+      this.setData({ loading: false, loadError: error.message || '店铺加载失败' })
       wx.showToast({ title: error.message || '店铺加载失败', icon: 'none' })
     }
   },

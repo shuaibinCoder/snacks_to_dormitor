@@ -17,6 +17,11 @@
       <view class="category {{activeCategory === item ? 'active' : ''}}" wx:for="{{categories}}" wx:key="*this" data-category="{{item}}" bindtap="selectCategory">{{item}}</view>
     </scroll-view>
     <scroll-view class="products" scroll-y enhanced show-scrollbar="{{false}}">
+      <view wx:if="{{!displayProducts.length}}" class="products-empty">
+        <text class="products-empty-icon">📦</text>
+        <view>{{loadError || '店铺暂时没有上架商品'}}</view>
+        <text>商家可在工作台检查商品是否为“上架”状态</text>
+      </view>
       <view class="product" wx:for="{{displayProducts}}" wx:key="_id">
         <image wx:if="{{item.image}}" class="product-image product-photo" src="{{item.image}}" mode="aspectFill"></image><view wx:else class="product-image">{{item.emoji}}</view>
         <view class="product-info">

@@ -7,7 +7,7 @@ Page({
   onPullDownRefresh() { this.loadData().finally(() => wx.stopPullDownRefresh()) },
   async loadData() {
     const store = await api.request('getMyStore')
-    if (!store) return wx.redirectTo({ url: '/pages/merchant-store/index' })
+    if (!store || store.approvalStatus !== 'APPROVED') return wx.redirectTo({ url: '/pages/merchant-apply/index' })
     const stats = await api.request('getMerchantStats')
     this.setData({ store, stats, todayAmountText: money(stats.todayAmount) })
   },
