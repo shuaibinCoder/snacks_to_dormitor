@@ -1,6 +1,7 @@
 const api = require('../../utils/api')
 const { decorateOrder, formatTime } = require('../../utils/format')
 const { ORDER_STATUS } = require('../../utils/constants')
+const { requestSharedSubscription, showSubscribeFeedback, primeNotificationConfig } = require('../../utils/notifications')
 
 const nextActions = {
   CREATED: { text: '接单', status: 'ACCEPTED', secondaryText: '拒绝订单', secondaryStatus: 'REJECTED' },
@@ -11,7 +12,7 @@ const nextActions = {
 
 Page({
   data: { orderId: '', order: null, merchantMode: false, action: null, created: false },
-  onLoad(options) { this.setData({ orderId: options.id, merchantMode: options.mode === 'merchant', created: options.created === '1' }); this.loadOrder() },
+  onLoad(options) { this.setData({ orderId: options.id, merchantMode: options.mode === 'merchant', created: options.created === '1' }); primeNotificationConfig(); this.loadOrder() },
   onPullDownRefresh() { this.loadOrder().finally(() => wx.stopPullDownRefresh()) },
   async loadOrder() {
     try {
@@ -39,6 +40,7 @@ Page({
     catch (error) { wx.showToast({ title: error.message || '操作失败', icon: 'none' }) }
     finally { wx.hideLoading() }
   },
+  async enableBuyerNotice() { const result = await requestSharedSubscription('BUYER_ORDER_PROGRESS', 'BUYER'); showSubscribeFeedback(result, '已增加一次订单进度提醒') },
   callMerchant() {
     if (!this.data.order.phone) return
     wx.makePhoneCall({ phoneNumber: this.data.order.phone })

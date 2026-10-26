@@ -1,7 +1,7 @@
 const api = require('../../utils/api')
 const { DELIVERY_METHODS } = require('../../utils/constants')
 const { money } = require('../../utils/format')
-const { requestSharedSubscription } = require('../../utils/notifications')
+const { requestSharedSubscription, primeNotificationConfig } = require('../../utils/notifications')
 
 Page({
   data: {
@@ -10,6 +10,7 @@ Page({
   },
 
   onLoad() {
+    primeNotificationConfig()
     const pending = wx.getStorageSync('snacks_pending_checkout')
     if (!pending || !pending.store) return wx.navigateBack()
     const profile = api.getProfile() || {}
@@ -32,7 +33,7 @@ Page({
 
     this.setData({ submitting: true })
     try {
-      await requestSharedSubscription('ORDER_SUBMIT')
+      await requestSharedSubscription('ORDER_SUBMIT', 'BUYER')
       api.saveProfile(Object.assign({}, api.getProfile(), { contactName, phone, location }))
       const order = await api.request('createOrder', {
         order: {

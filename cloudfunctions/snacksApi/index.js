@@ -148,10 +148,13 @@ async function backfillChineseLabels() {
     readStatusLabel: getEnumLabel('NOTIFICATION_READ_STATUS', item.readStatus)
   }))
   await backfillCollection('notification_deliveries', item => ({
+    subscriptionRoleLabel: getEnumLabel('NOTIFICATION_SUBSCRIPTION_ROLE', item.subscriptionRole || 'GENERAL'),
     channelLabel: getEnumLabel('NOTIFICATION_CHANNEL', item.channel),
     deliveryStatusLabel: getEnumLabel('NOTIFICATION_DELIVERY_STATUS', item.deliveryStatus)
   }))
   await backfillCollection('notification_preferences', item => ({
+    subscriptionRole: item.subscriptionRole || 'GENERAL',
+    subscriptionRoleLabel: getEnumLabel('NOTIFICATION_SUBSCRIPTION_ROLE', item.subscriptionRole || 'GENERAL'),
     lastPermissionLabel: getEnumLabel('SUBSCRIBE_PERMISSION', item.lastPermission)
   }))
 }
@@ -1044,7 +1047,9 @@ exports.main = async event => {
       case 'getNotificationConfig': return ok(await notificationService.getNotificationConfig())
       case 'getNotificationAdminConfig': return ok(await getNotificationAdminConfig(OPENID))
       case 'saveNotificationTemplate': return ok(await saveNotificationTemplateAction(event, OPENID))
-      case 'recordSubscribePermission': return ok(await notificationService.recordSubscribePermission(OPENID, event.permission, event.scene))
+      case 'recordSubscribePermission': return ok(await notificationService.recordSubscribePermission(OPENID, event.permission, event.scene, event.subscriptionRole))
+      case 'sendTestNotification': return ok(await notificationService.sendTestNotification(OPENID, event.subscriptionRole))
+      case 'getMyNotificationDiagnostics': return ok(await notificationService.getMyNotificationDiagnostics(OPENID))
       case 'listNotifications': return ok(await notificationService.listNotifications(OPENID, event))
       case 'getUnreadNotificationCount': return ok(await notificationService.getUnreadNotificationCount(OPENID))
       case 'markNotificationRead': return ok(await notificationService.markNotificationRead(OPENID, event.notificationId))

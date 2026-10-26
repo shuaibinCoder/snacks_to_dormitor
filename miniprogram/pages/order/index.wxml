@@ -5,6 +5,7 @@
     <view><view class="detail-status">{{order.statusText}}</view><view class="status-desc">{{order.status === 'CREATED' ? '商家正在确认库存，请稍等' : order.status === 'DELIVERED' ? '商品已送达，请确认并线下付款' : '订单状态有更新'}}</view></view>
     <view class="status-emoji">{{order.status === 'COMPLETED' ? '🎉' : order.status === 'CANCELED' || order.status === 'REJECTED' ? '🧾' : '🛵'}}</view>
   </view>
+  <view wx:if="{{!merchantMode && order.status !== 'COMPLETED' && order.status !== 'CANCELED' && order.status !== 'REJECTED'}}" class="notice-tip" bindtap="enableBuyerNotice"><view><text>🔔 增加一次微信进度提醒</text><label>一次授权可推送一个后续状态，站内消息不受限制</label></view><text>开启 ›</text></view>
 
   <view class="card contact-card">
     <view class="address-icon">📍</view><view class="address-main"><view class="location">{{order.location || '到店自取'}}</view><view class="contact">{{order.contactName}}　{{order.phone}} · {{order.deliveryMethod}}</view></view>

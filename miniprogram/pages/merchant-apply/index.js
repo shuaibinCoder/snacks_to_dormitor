@@ -1,7 +1,7 @@
 const api = require('../../utils/api')
 const { decorateApplication } = require('../../utils/roles')
 const { money } = require('../../utils/format')
-const { requestSharedSubscription } = require('../../utils/notifications')
+const { requestSharedSubscription, primeNotificationConfig } = require('../../utils/notifications')
 
 const EDITABLE_STATUSES = ['DRAFT', 'NEED_MORE_INFO', 'REJECTED', 'CONTACT_FAILED']
 
@@ -17,7 +17,7 @@ Page({
     serviceDescription: '', notice: '', minimumOrderYuan: '0', deliveryFeeYuan: '0', deliveryMinutes: '15'
   },
 
-  onShow() { this.loadData() },
+  onShow() { this.loadData(); primeNotificationConfig() },
   onPullDownRefresh() { this.loadData().finally(() => wx.stopPullDownRefresh()) },
 
   async loadData() {
@@ -51,7 +51,7 @@ Page({
     if (!/^1\d{10}$/.test(this.data.phone)) return wx.showToast({ title: '请输入正确手机号', icon: 'none' })
     this.setData({ submitting: true })
     try {
-      await requestSharedSubscription('MERCHANT_APPLICATION_SUBMIT')
+      await requestSharedSubscription('MERCHANT_APPLICATION_SUBMIT', 'APPLICANT')
       const application = await api.request('submitMerchantApplication', {
         application: {
           storeName: this.data.storeName.trim(), ownerName: this.data.ownerName.trim(), phone: this.data.phone,

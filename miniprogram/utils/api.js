@@ -135,8 +135,15 @@ function localRequest(action, data) {
       return { templateKey: 'SHARED_BUSINESS_NOTICE', templateId: template.templateId || '', enabled: !!template.enabled, keyLabel: '统一业务状态通知模板' }
     }
     case 'recordSubscribePermission': {
-      const preference = { permission: data.permission, scene: data.scene, updatedAt: now() }
-      wx.setStorageSync(KEYS.notificationPreference, preference)
+      const stored = wx.getStorageSync(KEYS.notificationPreference) || []
+      const list = Array.isArray(stored) ? stored : [stored]
+      const subscriptionRole = data.subscriptionRole || 'GENERAL'
+      const index = list.findIndex(item => item.subscriptionRole === subscriptionRole)
+      const previous = index >= 0 ? list[index] : {}
+      const preference = { permission: data.permission, lastPermission: data.permission, lastPermissionLabel: data.permission === 'ACCEPT' ? '已同意' : '已拒绝', subscriptionRole, subscriptionRoleLabel: subscriptionRole, grantedCount: Number(previous.grantedCount || 0) + (data.permission === 'ACCEPT' ? 1 : 0), scene: data.scene, updatedAt: now() }
+      if (index >= 0) list[index] = preference
+      else list.push(preference)
+      wx.setStorageSync(KEYS.notificationPreference, list)
       return clone(preference)
     }
     case 'listNotifications': {
@@ -161,6 +168,13 @@ function localRequest(action, data) {
     }
     case 'getNotificationAdminConfig':
       return clone(wx.getStorageSync(KEYS.notificationTemplate) || { _id: 'SHARED_BUSINESS_NOTICE', templateId: '', enabled: false, fields: { titleKey: 'thing1', statusKey: 'phrase2', timeKey: 'time3', remarkKey: 'thing4' } })
+    case 'getMyNotificationDiagnostics': {
+      const template = wx.getStorageSync(KEYS.notificationTemplate) || { templateId: '', enabled: false, miniprogramState: 'trial', fields: {} }
+      const preferences = wx.getStorageSync(KEYS.notificationPreference) || []
+      return { config: template, preferences: Array.isArray(preferences) ? preferences : [preferences], latestDeliveries: [] }
+    }
+    case 'sendTestNotification':
+      return { _id: id('notification'), wechatSent: false }
     case 'saveNotificationTemplate':
       wx.setStorageSync(KEYS.notificationTemplate, data.template); return clone(data.template)
     case 'getMyIdentity': {

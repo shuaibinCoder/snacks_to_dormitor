@@ -1,4 +1,4 @@
-const DICTIONARY_VERSION = '2026-10-23-v5'
+const DICTIONARY_VERSION = '2026-10-26-v3'
 
 const DICTIONARIES = {
   USER_ROLE: {
@@ -153,7 +153,8 @@ const DICTIONARIES = {
       { code: 'APPLICATION_APPROVED', label: '入驻审核通过', description: '通知申请人店铺已经上线。' },
       { code: 'APPLICATION_REJECTED', label: '入驻审核未通过', description: '通知申请人审核拒绝原因。' },
       { code: 'STORE_SUSPENDED', label: '店铺被平台暂停', description: '通知商家店铺已暂停。' },
-      { code: 'STORE_RESUMED', label: '店铺恢复上线', description: '通知商家店铺已恢复。' }
+      { code: 'STORE_RESUMED', label: '店铺恢复上线', description: '通知商家店铺已恢复。' },
+      { code: 'TEST_NOTIFICATION', label: '微信提醒测试', description: '用于验证统一订阅消息模板和授权是否可正常发送。' }
     ]
   },
   NOTIFICATION_PRIORITY: {
@@ -202,6 +203,17 @@ const DICTIONARIES = {
       { code: 'SKIPPED', label: '已跳过', description: '模板未配置或用户没有可用授权次数。' }
     ]
   },
+  NOTIFICATION_SUBSCRIPTION_ROLE: {
+    name: '订阅提醒身份',
+    description: '同一个微信用户可能同时是购买者、商家和管理员，授权次数按业务身份分开使用。',
+    items: [
+      { code: 'BUYER', label: '购买者提醒', description: '用于接收接单、配送和送达等订单进度。' },
+      { code: 'MERCHANT', label: '商家提醒', description: '用于接收新订单和用户取消订单。' },
+      { code: 'APPLICANT', label: '商家申请人提醒', description: '用于接收入驻联系、付款和审核进度。' },
+      { code: 'PLATFORM', label: '平台审批提醒', description: '用于接收新申请和已付款待审核消息。' },
+      { code: 'GENERAL', label: '通用提醒', description: '消息中心手动开启的通用备用授权。' }
+    ]
+  },
   SUBSCRIBE_PERMISSION: {
     name: '订阅消息授权状态',
     description: '用户对统一微信订阅消息模板的授权结果。',
@@ -209,6 +221,7 @@ const DICTIONARIES = {
       { code: 'ACCEPT', label: '已同意', description: '用户同意接收一次模板消息。' },
       { code: 'REJECT', label: '已拒绝', description: '用户拒绝本次订阅请求。' },
       { code: 'BAN', label: '永久拒绝', description: '用户选择不再询问或被微信限制。' },
+      { code: 'FILTER', label: '模板被过滤', description: '微信判断模板不可用或同名模板被过滤。' },
       { code: 'UNKNOWN', label: '未知', description: '尚未请求授权或无法判断。' }
     ]
   },

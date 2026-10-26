@@ -13,6 +13,7 @@
       <view class="tool-card card" data-url="/pages/merchant-products/index" bindtap="go"><view class="tool-icon product-icon">📦</view><view class="tool-name">商品库存</view><view class="tool-desc">上下架和补货</view></view>
       <view class="tool-card card" data-url="/pages/merchant-store/index" bindtap="go"><view class="tool-icon setting-icon">⚙️</view><view class="tool-name">店铺设置</view><view class="tool-desc">店名与配送</view></view>
       <button class="tool-card card share-card" open-type="share"><view class="tool-icon share-icon">📣</view><view class="tool-name">分享店铺</view><view class="tool-desc">发给同学下单</view></button>
+      <view class="tool-card card" bindtap="enableMerchantNotice"><view class="tool-icon notice-icon">🔔</view><view class="tool-name">接单微信提醒</view><view class="tool-desc">每次授权可推送1次</view></view>
     </view>
     <view class="preview card" bindtap="previewStore"><view><view class="preview-title">查看顾客端店铺</view><view class="preview-desc">检查商品展示和营业状态</view></view><text>去预览 ›</text></view>
   </view>

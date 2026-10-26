@@ -1,4 +1,5 @@
 const { initLocalData } = require('./utils/api')
+const { primeNotificationConfig } = require('./utils/notifications')
 
 App({
   onLaunch() {
@@ -19,6 +20,7 @@ App({
         this.globalData.cloudReady = wx.cloud.callFunction({ name: 'snacksApi', data: { action: 'initCollections' } }).catch(error => {
           console.warn('云端集合初始化失败，请确认 snacksApi 已部署：', error)
         })
+        this.globalData.cloudReady.then(() => primeNotificationConfig(true))
       }
     }
 

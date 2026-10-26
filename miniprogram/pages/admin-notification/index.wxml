@@ -1,20 +1,43 @@
 <view class="page config-page">
   <view class="intro-card"><view class="intro-title">统一业务状态通知模板</view><view class="intro-desc">订单、商家入驻、店铺和平台审批共用一个微信订阅消息模板。站内消息不受此配置影响。</view></view>
+
+  <view wx:if="{{diagnostics}}" class="diagnostic-card card">
+    <view class="diagnostic-title">当前账号推送诊断</view>
+    <view class="diagnostic-row"><text>模板配置</text><text class="{{diagnostics.configReady ? 'ok' : 'bad'}}">{{diagnostics.configReady ? '已启用' : '未启用'}}</text></view>
+    <view class="diagnostic-row"><text>消息跳转版本</text><text>{{diagnostics.stateName}}</text></view>
+    <view class="role-diagnostic" wx:for="{{diagnostics.rolePreferences}}" wx:key="role"><view><text>{{item.roleName}}</text><label>{{item.permissionLabel}}</label></view><text class="{{item.grantedCount ? 'ok' : 'warn'}}">可用 {{item.grantedCount}} 次</text></view>
+    <view class="refresh-link" bindtap="refreshConfig">刷新配置与诊断</view>
+  </view>
+
   <view class="section-title">模板配置</view>
   <view class="form-card config-form">
     <view class="form-row"><text class="form-label">模板ID</text><input class="form-input" placeholder="公众平台订阅消息模板ID" value="{{templateId}}" data-field="templateId" bindinput="onField" /></view>
     <view class="form-row"><text class="form-label">启用推送</text><switch checked="{{enabled}}" color="#f36a2d" bindchange="onSwitch" /></view>
     <view class="form-row"><text class="form-label">跳转版本</text><picker class="picker" range="{{stateNames}}" value="{{stateIndex}}" bindchange="onState"><view>{{stateNames[stateIndex]}} ›</view></picker></view>
   </view>
+  <view wx:if="{{states[stateIndex] === 'developer'}}" class="version-warning">你当前选择的是开发版。通过“体验版”二维码测试时，请选择“体验版”并保存，否则消息中的页面无法正确打开。</view>
+
   <view class="section-title field-title">关键词映射</view>
-  <view class="field-tip">请根据微信公众平台中实际模板的关键词编号填写。推荐模板字段：通知类型、当前状态、通知时间、通知内容。</view>
+  <view class="field-tip">根据当前模板填写纯关键词名称，不要填写大括号。你截图中的配置应为 phrase8、phrase23、time3、thing2。</view>
   <view class="form-card">
-    <view class="form-row"><text class="form-label">通知类型</text><input class="form-input" value="{{titleKey}}" data-field="titleKey" bindinput="onField" /></view>
-    <view class="form-row"><text class="form-label">当前状态</text><input class="form-input" value="{{statusKey}}" data-field="statusKey" bindinput="onField" /></view>
-    <view class="form-row"><text class="form-label">通知时间</text><input class="form-input" value="{{timeKey}}" data-field="timeKey" bindinput="onField" /></view>
-    <view class="form-row"><text class="form-label">通知内容</text><input class="form-input" value="{{remarkKey}}" data-field="remarkKey" bindinput="onField" /></view>
+    <view class="form-row"><text class="form-label">消息类型</text><input class="form-input" value="{{titleKey}}" data-field="titleKey" bindinput="onField" /></view>
+    <view class="form-row"><text class="form-label">状态</text><input class="form-input" value="{{statusKey}}" data-field="statusKey" bindinput="onField" /></view>
+    <view class="form-row"><text class="form-label">发送时间</text><input class="form-input" value="{{timeKey}}" data-field="timeKey" bindinput="onField" /></view>
+    <view class="form-row"><text class="form-label">消息内容</text><input class="form-input" value="{{remarkKey}}" data-field="remarkKey" bindinput="onField" /></view>
   </view>
-  <view class="warning">模板字段的数据类型必须与微信模板一致。默认假设通知类型和通知内容为 thing，当前状态为 phrase，通知时间为 time。</view>
+  <view class="warning">你的模板应填写：消息类型 phrase8、状态 phrase23、发送时间 time3、消息内容 thing2。模板字段类型必须与公众平台一致。</view>
   <view class="primary-btn save-btn" bindtap="save">{{saving ? '保存中…' : '保存统一模板'}}</view>
-  <view class="secondary-btn test-btn" bindtap="testSubscribe">测试请求订阅授权</view>
+  <view class="secondary-btn test-btn" bindtap="testSubscribe">{{testing ? '测试中…' : '授权并发送测试消息'}}</view>
+
+  <view class="section-title delivery-title">最近微信推送记录</view>
+  <view class="card delivery-card">
+    <block wx:if="{{latestDeliveries.length}}">
+      <view class="delivery-row" wx:for="{{latestDeliveries}}" wx:key="_id">
+        <view><text class="delivery-status status-{{item.deliveryStatus}}">{{item.deliveryStatusLabel}}</text><text class="delivery-time">{{item.createdAtText}}</text></view>
+        <view wx:if="{{item.lastErrorMessage}}" class="delivery-error">{{item.lastErrorCode ? item.lastErrorCode + ' · ' : ''}}{{item.lastErrorMessage}}</view>
+        <view wx:if="{{!item.lastErrorMessage}}" class="delivery-success">微信接口已返回成功</view>
+      </view>
+    </block>
+    <view wx:if="{{!latestDeliveries.length}}" class="no-delivery">还没有微信推送记录，点击上方测试按钮验证。</view>
+  </view>
 </view>

@@ -1,4 +1,4 @@
-const SCHEMA_VERSION = '2026-10-23-v3'
+const SCHEMA_VERSION = '2026-10-26-v1'
 
 const COLLECTION_SCHEMAS = {
   users: {
@@ -175,6 +175,8 @@ const COLLECTION_SCHEMAS = {
     fields: [
       { field: 'notificationId', label: '站内消息ID', type: 'string', description: '对应notifications记录ID。' },
       { field: 'recipientOpenid', label: '接收人身份ID', type: 'string', description: '消息接收人的微信OPENID。' },
+      { field: 'subscriptionRole', label: '使用的订阅身份编码', type: 'string', enumType: 'NOTIFICATION_SUBSCRIPTION_ROLE', description: '本次推送使用购买者、商家、申请人、平台或通用授权。' },
+      { field: 'subscriptionRoleLabel', label: '订阅身份中文名称', type: 'string', description: 'subscriptionRole对应的中文名称。' },
       { field: 'channel', label: '发送通道编码', type: 'string', enumType: 'NOTIFICATION_CHANNEL', description: '站内或微信订阅消息。' },
       { field: 'channelLabel', label: '发送通道中文名称', type: 'string', description: 'channel对应的中文名称。' },
       { field: 'templateKey', label: '消息模板键', type: 'string', description: '当前统一使用SHARED_BUSINESS_NOTICE。' },
@@ -193,6 +195,8 @@ const COLLECTION_SCHEMAS = {
     fields: [
       { field: 'openid', label: '用户身份ID', type: 'string', description: '授权用户的微信OPENID。' },
       { field: 'templateKey', label: '消息模板键', type: 'string', description: '统一业务状态通知模板键。' },
+      { field: 'subscriptionRole', label: '订阅提醒身份编码', type: 'string', enumType: 'NOTIFICATION_SUBSCRIPTION_ROLE', description: '授权次数归属于购买者、商家、申请人、平台或通用身份。' },
+      { field: 'subscriptionRoleLabel', label: '订阅提醒身份中文名称', type: 'string', description: 'subscriptionRole对应的中文名称。' },
       { field: 'lastPermission', label: '最后授权结果编码', type: 'string', enumType: 'SUBSCRIBE_PERMISSION', description: '最近一次请求订阅的结果。' },
       { field: 'lastPermissionLabel', label: '授权结果中文名称', type: 'string', description: 'lastPermission对应的中文名称。' },
       { field: 'grantedCount', label: '可用授权次数', type: 'number', description: '当前可尝试发送的模板消息次数。' },
