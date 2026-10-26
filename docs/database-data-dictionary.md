@@ -1,8 +1,8 @@
 # 宿舍补给站数据库中文数据字典
 
 - 更新日期：2026-10-23
-- 字段说明版本：2026-10-23-v2
-- 枚举说明版本：2026-10-23-v3
+- 字段说明版本：2026-10-23-v3
+- 枚举说明版本：2026-10-23-v5
 
 > 数据库存储英文编码用于程序稳定判断，同时使用 `xxxLabel` 字段保存中文名称。完整中文说明也会同步到 `system_collection_schemas` 和 `system_dictionaries` 集合。
 
@@ -158,6 +158,76 @@
 | `statusLabel` | 订单状态中文名称 | `string` | — | status对应的中文名称。 |
 | `statusHistory` | 订单状态历史 | `object[]` | — | 记录每次状态变化的编码、中文名称和时间。 |
 
+### 站内消息 `notifications`
+
+保存订单、商家入驻、店铺和平台审批通知，是可靠消息主通道。
+
+| 字段 | 中文名称 | 类型 | 枚举 | 含义 |
+|---|---|---|---|---|
+| `recipientOpenid` | 接收人身份ID | `string` | — | 消息接收人的微信OPENID。 |
+| `recipientRole` | 接收人角色编码 | `string` | — | 接收消息时用户所处角色。 |
+| `recipientRoleLabel` | 接收人角色中文名称 | `string` | — | recipientRole对应的中文名称。 |
+| `category` | 消息分类编码 | `string` | `NOTIFICATION_CATEGORY` | 订单、商家入驻、店铺、平台或系统消息。 |
+| `categoryLabel` | 消息分类中文名称 | `string` | — | category对应的中文名称。 |
+| `type` | 消息类型编码 | `string` | `NOTIFICATION_TYPE` | 具体触发消息的业务事件。 |
+| `typeLabel` | 消息类型中文名称 | `string` | — | type对应的中文名称。 |
+| `priority` | 消息优先级编码 | `string` | `NOTIFICATION_PRIORITY` | 消息紧急程度。 |
+| `priorityLabel` | 消息优先级中文名称 | `string` | — | priority对应的中文名称。 |
+| `title` | 消息标题 | `string` | — | 消息列表展示标题。 |
+| `summary` | 消息摘要 | `string` | — | 消息列表和订阅消息展示摘要。 |
+| `statusText` | 业务状态简述 | `string` | — | 统一微信模板中的简短状态文字。 |
+| `bizType` | 业务对象编码 | `string` | `NOTIFICATION_BIZ_TYPE` | 消息关联的业务类型。 |
+| `bizId` | 业务记录ID | `string` | — | 关联订单、申请或店铺ID。 |
+| `pagePath` | 跳转页面 | `string` | — | 点击消息后进入的小程序页面路径。 |
+| `readStatus` | 已读状态编码 | `string` | `NOTIFICATION_READ_STATUS` | 消息是否已经查看。 |
+| `readStatusLabel` | 已读状态中文名称 | `string` | — | readStatus对应的中文名称。 |
+| `dedupeKey` | 消息去重键 | `string` | — | 防止同一业务事件重复创建消息。 |
+| `createdAt` | 创建时间 | `number` | — | 消息创建毫秒时间戳。 |
+
+### 消息发送记录 `notification_deliveries`
+
+记录站内消息和微信订阅消息是否发送成功以及失败原因。
+
+| 字段 | 中文名称 | 类型 | 枚举 | 含义 |
+|---|---|---|---|---|
+| `notificationId` | 站内消息ID | `string` | — | 对应notifications记录ID。 |
+| `recipientOpenid` | 接收人身份ID | `string` | — | 消息接收人的微信OPENID。 |
+| `channel` | 发送通道编码 | `string` | `NOTIFICATION_CHANNEL` | 站内或微信订阅消息。 |
+| `channelLabel` | 发送通道中文名称 | `string` | — | channel对应的中文名称。 |
+| `templateKey` | 消息模板键 | `string` | — | 当前统一使用SHARED_BUSINESS_NOTICE。 |
+| `templateId` | 微信模板ID | `string` | — | 公众平台配置的订阅消息模板ID。 |
+| `deliveryStatus` | 发送状态编码 | `string` | `NOTIFICATION_DELIVERY_STATUS` | 发送成功、失败或跳过。 |
+| `deliveryStatusLabel` | 发送状态中文名称 | `string` | — | deliveryStatus对应的中文名称。 |
+| `attemptCount` | 发送尝试次数 | `number` | — | 调用消息通道的次数。 |
+| `lastErrorCode` | 最后错误码 | `string` | — | 微信接口返回的错误码。 |
+| `lastErrorMessage` | 最后错误说明 | `string` | — | 发送失败或跳过原因。 |
+| `sentAt` | 发送成功时间 | `number` | — | 发送成功毫秒时间戳。 |
+
+### 消息订阅授权 `notification_preferences`
+
+记录用户对统一微信订阅消息模板的授权和剩余可用次数。
+
+| 字段 | 中文名称 | 类型 | 枚举 | 含义 |
+|---|---|---|---|---|
+| `openid` | 用户身份ID | `string` | — | 授权用户的微信OPENID。 |
+| `templateKey` | 消息模板键 | `string` | — | 统一业务状态通知模板键。 |
+| `lastPermission` | 最后授权结果编码 | `string` | `SUBSCRIBE_PERMISSION` | 最近一次请求订阅的结果。 |
+| `lastPermissionLabel` | 授权结果中文名称 | `string` | — | lastPermission对应的中文名称。 |
+| `grantedCount` | 可用授权次数 | `number` | — | 当前可尝试发送的模板消息次数。 |
+| `lastScene` | 最后授权场景 | `string` | — | 下单、营业、提交申请或平台审批。 |
+
+### 消息模板配置 `notification_templates`
+
+配置站内消息和统一微信订阅消息模板。
+
+| 字段 | 中文名称 | 类型 | 枚举 | 含义 |
+|---|---|---|---|---|
+| `key` | 模板键 | `string` | — | 统一使用SHARED_BUSINESS_NOTICE。 |
+| `keyLabel` | 模板中文名称 | `string` | — | 模板用途中文说明。 |
+| `templateId` | 微信模板ID | `string` | — | 从微信公众平台订阅消息模板库取得。 |
+| `enabled` | 是否启用 | `boolean` | — | 只有开启且配置模板ID后才发送微信订阅消息。 |
+| `fields` | 模板字段映射 | `object` | — | 标题、状态、时间和备注对应的微信模板关键词。 |
+
 ### 平台审计日志 `audit_logs`
 
 记录平台人员执行的审批、收款、店铺治理和权限配置操作。
@@ -310,6 +380,106 @@
 | `CASH` | 现金 | 双方通过现金完成付款。 |
 | `OTHER` | 其他方式 | 由平台备注说明的其他线下付款方式。 |
 
+### 消息分类 `NOTIFICATION_CATEGORY`
+
+站内消息所属的业务分类。
+
+| 编码 | 中文名称 | 含义 |
+|---|---|---|
+| `ORDER` | 订单消息 | 下单、接单、配送和取消等订单消息。 |
+| `MERCHANT_APPLICATION` | 商家入驻消息 | 入驻申请、付款和审核进度消息。 |
+| `STORE` | 店铺经营消息 | 店铺暂停、恢复和经营状态消息。 |
+| `PLATFORM` | 平台审批消息 | 平台运营和管理员需要处理的消息。 |
+| `SYSTEM` | 系统通知 | 平台系统级通知。 |
+
+### 消息类型 `NOTIFICATION_TYPE`
+
+触发站内消息和微信订阅消息的具体业务事件。
+
+| 编码 | 中文名称 | 含义 |
+|---|---|---|
+| `NEW_ORDER` | 新订单提醒 | 购买者提交订单后通知商家。 |
+| `ORDER_ACCEPTED` | 商家已接单 | 商家接受订单后通知购买者。 |
+| `ORDER_REJECTED` | 商家拒绝订单 | 商家拒单后通知购买者。 |
+| `ORDER_DELIVERING` | 商品开始配送 | 订单进入配送状态后通知购买者。 |
+| `ORDER_DELIVERED` | 商品已经送达 | 商家标记送达后通知购买者。 |
+| `BUYER_CANCELED_ORDER` | 用户取消订单 | 购买者取消订单后通知商家。 |
+| `APPLICATION_SUBMITTED` | 入驻申请已提交 | 通知申请人入驻申请已经提交。 |
+| `NEW_MERCHANT_APPLICATION` | 新商家申请 | 通知平台人员出现新的入驻申请。 |
+| `APPLICATION_RESUBMITTED` | 商家重新提交资料 | 通知平台人员申请人已经补充资料。 |
+| `APPLICATION_CONTACTED` | 平台已完成联系 | 通知申请人平台已电话联系。 |
+| `APPLICATION_CONTACT_FAILED` | 平台暂未联系成功 | 通知申请人检查联系电话。 |
+| `APPLICATION_NEED_MORE_INFO` | 需要补充资料 | 通知申请人补充入驻资料。 |
+| `APPLICATION_PAYMENT_PENDING` | 待完成线下付款 | 通知申请人查看付款金额和说明。 |
+| `APPLICATION_PAYMENT_CONFIRMED` | 平台已确认收款 | 通知申请人等待最终审核。 |
+| `APPLICATION_PAID_PENDING_APPROVAL` | 已付款待最终审核 | 通知管理员处理已付款申请。 |
+| `APPLICATION_APPROVED` | 入驻审核通过 | 通知申请人店铺已经上线。 |
+| `APPLICATION_REJECTED` | 入驻审核未通过 | 通知申请人审核拒绝原因。 |
+| `STORE_SUSPENDED` | 店铺被平台暂停 | 通知商家店铺已暂停。 |
+| `STORE_RESUMED` | 店铺恢复上线 | 通知商家店铺已恢复。 |
+
+### 消息优先级 `NOTIFICATION_PRIORITY`
+
+消息处理的紧急程度。
+
+| 编码 | 中文名称 | 含义 |
+|---|---|---|
+| `URGENT` | 紧急 | 需要立即处理，例如新订单或店铺暂停。 |
+| `HIGH` | 高优先级 | 用户明显关心或需要采取行动。 |
+| `NORMAL` | 普通 | 普通进度或结果通知。 |
+| `LOW` | 低优先级 | 可延迟处理的提示。 |
+
+### 消息业务对象 `NOTIFICATION_BIZ_TYPE`
+
+消息点击后关联的业务数据类型。
+
+| 编码 | 中文名称 | 含义 |
+|---|---|---|
+| `ORDER` | 订单 | 关联订单详情。 |
+| `MERCHANT_APPLICATION` | 商家入驻申请 | 关联入驻申请或审批详情。 |
+| `STORE` | 店铺 | 关联店铺或商家工作台。 |
+| `SYSTEM` | 系统 | 不关联具体业务记录。 |
+
+### 消息已读状态 `NOTIFICATION_READ_STATUS`
+
+站内消息是否已被接收人查看。
+
+| 编码 | 中文名称 | 含义 |
+|---|---|---|
+| `UNREAD` | 未读 | 消息尚未被打开。 |
+| `READ` | 已读 | 消息已经被打开。 |
+
+### 消息发送通道 `NOTIFICATION_CHANNEL`
+
+消息通过哪种方式触达用户。
+
+| 编码 | 中文名称 | 含义 |
+|---|---|---|
+| `IN_APP` | 小程序站内消息 | 保存在小程序消息中心。 |
+| `WECHAT_SUBSCRIBE` | 微信订阅消息 | 用户离开小程序后通过微信服务通知触达。 |
+
+### 消息发送状态 `NOTIFICATION_DELIVERY_STATUS`
+
+消息通道发送结果。
+
+| 编码 | 中文名称 | 含义 |
+|---|---|---|
+| `PENDING` | 待发送 | 等待调用发送通道。 |
+| `SUCCESS` | 发送成功 | 消息通道返回成功。 |
+| `FAILED_FINAL` | 发送失败 | 模板、授权或接口错误导致最终失败。 |
+| `SKIPPED` | 已跳过 | 模板未配置或用户没有可用授权次数。 |
+
+### 订阅消息授权状态 `SUBSCRIBE_PERMISSION`
+
+用户对统一微信订阅消息模板的授权结果。
+
+| 编码 | 中文名称 | 含义 |
+|---|---|---|
+| `ACCEPT` | 已同意 | 用户同意接收一次模板消息。 |
+| `REJECT` | 已拒绝 | 用户拒绝本次订阅请求。 |
+| `BAN` | 永久拒绝 | 用户选择不再询问或被微信限制。 |
+| `UNKNOWN` | 未知 | 尚未请求授权或无法判断。 |
+
 ### 平台操作类型 `AUDIT_ACTION`
 
 平台人员在运营后台执行的重要操作。
@@ -327,6 +497,7 @@
 | `RESUME_STORE` | 恢复店铺 | 管理员恢复店铺展示和接单资格。 |
 | `SAVE_PLATFORM_USER` | 配置平台人员权限 | 新增或修改平台运营、管理员角色。 |
 | `SYNC_CHINESE_DESCRIPTIONS` | 同步数据库中文说明 | 将枚举中文名称和说明同步到现有数据库记录。 |
+| `SAVE_NOTIFICATION_TEMPLATE` | 配置订阅消息模板 | 管理员配置统一微信订阅消息模板。 |
 
 ### 平台操作对象类型 `AUDIT_TARGET_TYPE`
 
@@ -340,18 +511,15 @@
 | `ORDER` | 订单 | 操作对象是订单记录。 |
 | `PLATFORM_USER` | 平台人员 | 操作对象是平台运营或管理员账号。 |
 | `SYSTEM_DICTIONARY` | 系统数据字典 | 操作对象是数据库字段和枚举中文说明。 |
+| `NOTIFICATION_TEMPLATE` | 通知模板 | 操作对象是站内或微信订阅消息模板。 |
 
 ## 三、金额和时间约定
 
 - 所有金额字段统一使用“分”为单位的整数。例如 `400` 表示4元，`1000` 表示10元。
-- 所有时间字段使用毫秒时间戳。例如可以通过 `new Date(createdAt)` 转换。
-- `OPENID` 是微信用户在当前小程序内的唯一身份，不是手机号或微信号。
-- 数据库中的英文枚举编码不能随意改成中文，否则程序状态判断会失效。应修改对应的 `xxxLabel` 或数据字典说明。
+- 所有时间字段使用毫秒时间戳。
+- `OPENID` 是微信用户在当前小程序内的唯一身份。
+- 数据库中的英文枚举编码不能随意改成中文，应使用对应的 `xxxLabel` 字段查看中文含义。
 
 ## 四、查看入口
 
-平台人员可以在小程序中进入：
-
 `我的 → 平台管理后台 → 数据库中文说明`
-
-其中“集合与字段”展示每个字段含义，“固定枚举”展示所有角色、状态和平台操作编码。管理员还可以点击“同步中文说明到现有数据”，为旧数据补充中文名称字段。

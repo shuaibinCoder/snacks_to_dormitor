@@ -6,7 +6,7 @@
 2. 选择“上传并部署：云端安装依赖”。
 3. 等待云函数部署完成。
 4. 重新编译小程序。
-5. 确认数据库出现 `users`、`platform_users`、`merchant_applications`、`merchant_payments`、`audit_logs`、`system_dictionaries`、`system_collection_schemas`、`stores`、`products`、`orders`。
+5. 确认数据库出现 `users`、`platform_users`、`merchant_applications`、`merchant_payments`、`audit_logs`、`system_dictionaries`、`system_collection_schemas`、`notifications`、`notification_deliveries`、`notification_preferences`、`notification_templates`、`stores`、`products`、`orders`。
 6. 在“我的”复制开发者身份ID。
 7. 在 `platform_users` 手工初始化首个 `SUPER_ADMIN`。
 8. 重新进入“我的”，验证平台管理入口出现。
@@ -17,3 +17,7 @@
 
 13. 进入“平台管理后台 → 数据库中文说明”，点击“同步中文说明到现有数据”。
 14. 在云数据库中确认旧记录已经增加 `statusLabel`、`roleLabel`、`actionLabel` 等中文字段。
+
+15. 在公众平台选择一个通用订阅消息模板。
+16. 在“平台管理后台 → 消息模板配置”填入模板ID和关键词映射。
+17. 分别用购买者、商家和管理员账号点击授权入口并测试站内消息和微信推送。

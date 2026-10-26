@@ -5,6 +5,7 @@ const db = cloud.database()
 const _ = db.command
 const { DICTIONARY_VERSION, getEnumLabel, dictionaryDocuments } = require('./enums')
 const { SCHEMA_VERSION, schemaDocuments } = require('./schemas')
+const { createNotificationService } = require('./notifications')
 
 const COLLECTIONS = [
   'users',
@@ -14,6 +15,10 @@ const COLLECTIONS = [
   'audit_logs',
   'system_dictionaries',
   'system_collection_schemas',
+  'notifications',
+  'notification_deliveries',
+  'notification_preferences',
+  'notification_templates',
   'stores',
   'products',
   'orders'
@@ -43,6 +48,7 @@ function fail(message, code = 'BUSINESS_ERROR') { return { success: false, messa
 function context() { return cloud.getWXContext() }
 function now() { return Date.now() }
 function orderNo() { return `${Date.now()}${Math.floor(Math.random() * 90 + 10)}` }
+const notificationService = createNotificationService({ cloud, db, command: _, now, getEnumLabel })
 function unique(list) { return Array.from(new Set(list || [])) }
 
 async function initCollections() {
@@ -51,6 +57,7 @@ async function initCollections() {
   }
   await seedSystemDictionaries()
   await seedCollectionSchemas()
+  await notificationService.ensureSharedTemplate()
   return true
 }
 
@@ -133,6 +140,30 @@ async function backfillChineseLabels() {
     actionLabel: getEnumLabel('AUDIT_ACTION', item.action),
     targetTypeLabel: getEnumLabel('AUDIT_TARGET_TYPE', item.targetType)
   }))
+  await backfillCollection('notifications', item => ({
+    categoryLabel: getEnumLabel('NOTIFICATION_CATEGORY', item.category),
+    typeLabel: getEnumLabel('NOTIFICATION_TYPE', item.type),
+    priorityLabel: getEnumLabel('NOTIFICATION_PRIORITY', item.priority),
+    bizTypeLabel: getEnumLabel('NOTIFICATION_BIZ_TYPE', item.bizType),
+    readStatusLabel: getEnumLabel('NOTIFICATION_READ_STATUS', item.readStatus)
+  }))
+  await backfillCollection('notification_deliveries', item => ({
+    channelLabel: getEnumLabel('NOTIFICATION_CHANNEL', item.channel),
+    deliveryStatusLabel: getEnumLabel('NOTIFICATION_DELIVERY_STATUS', item.deliveryStatus)
+  }))
+  await backfillCollection('notification_preferences', item => ({
+    lastPermissionLabel: getEnumLabel('SUBSCRIBE_PERMISSION', item.lastPermission)
+  }))
+}
+
+async function safeCreateNotification(input) {
+  try { return await notificationService.createNotification(input) }
+  catch (error) { console.error('create notification failed', input && input.type, error); return null }
+}
+
+async function safeNotifyPlatformUsers(input, roles) {
+  try { return await notificationService.notifyPlatformUsers(input, roles) }
+  catch (error) { console.error('notify platform users failed', input && input.type, error); return 0 }
 }
 
 function normalizeStore(store) {
@@ -325,13 +356,42 @@ async function submitMerchantApplication(event, openid) {
     updatedAt: timestamp
   }
 
+  let savedApplication
   if (existing) {
     await db.collection('merchant_applications').doc(existing._id).update({ data })
-    return publicApplication({ ...existing, ...data })
+    savedApplication = { ...existing, ...data }
+  } else {
+    const added = await db.collection('merchant_applications').add({ data: { ...data, createdAt: timestamp } })
+    savedApplication = { _id: added._id, ...data, createdAt: timestamp }
   }
 
-  const added = await db.collection('merchant_applications').add({ data: { ...data, createdAt: timestamp } })
-  return publicApplication({ _id: added._id, ...data, createdAt: timestamp })
+  await safeCreateNotification({
+    recipientOpenid: openid,
+    recipientRole: 'CUSTOMER',
+    category: 'MERCHANT_APPLICATION',
+    type: 'APPLICATION_SUBMITTED',
+    priority: 'NORMAL',
+    title: '入驻申请已提交',
+    summary: `${storeName}的入驻申请已提交，请保持电话畅通。`,
+    statusText: '待联系',
+    bizType: 'MERCHANT_APPLICATION',
+    bizId: savedApplication._id,
+    pagePath: '/pages/merchant-apply/index',
+    dedupeKey: `APPLICATION_SUBMITTED:${savedApplication._id}:${timestamp}`
+  })
+  await safeNotifyPlatformUsers({
+    category: 'PLATFORM',
+    type: existing ? 'APPLICATION_RESUBMITTED' : 'NEW_MERCHANT_APPLICATION',
+    priority: 'HIGH',
+    title: existing ? '商家重新提交资料' : '收到新的商家申请',
+    summary: `${storeName}等待平台联系处理。`,
+    statusText: '待联系',
+    bizType: 'MERCHANT_APPLICATION',
+    bizId: savedApplication._id,
+    pagePath: `/pages/admin-application/index?id=${savedApplication._id}`,
+    dedupeKey: `${existing ? 'APPLICATION_RESUBMITTED' : 'NEW_MERCHANT_APPLICATION'}:${savedApplication._id}:${timestamp}`
+  }, [PLATFORM_ROLES.OPERATOR, PLATFORM_ROLES.ADMIN, PLATFORM_ROLES.SUPER])
+  return publicApplication(savedApplication)
 }
 
 async function getMyMerchantApplication(openid) {
@@ -375,6 +435,7 @@ async function markApplicationContacted(event, openid) {
   }
   await db.collection('merchant_applications').doc(application._id).update({ data: after })
   await writeAudit(operator, 'MARK_APPLICATION_CONTACTED', 'MERCHANT_APPLICATION', application._id, application, { status: APPLICATION_STATUS.CONTACTED }, event.note)
+  await safeCreateNotification({ recipientOpenid: application.applicantOpenid, recipientRole: 'CUSTOMER', category: 'MERCHANT_APPLICATION', type: 'APPLICATION_CONTACTED', priority: 'NORMAL', title: '平台已完成联系', summary: '平台已完成电话联系，正在确认入驻和付款信息。', statusText: '已联系', bizType: 'MERCHANT_APPLICATION', bizId: application._id, pagePath: '/pages/merchant-apply/index', dedupeKey: `APPLICATION_CONTACTED:${application._id}:${timestamp}` })
   return true
 }
 
@@ -393,6 +454,7 @@ async function markApplicationContactFailed(event, openid) {
     }
   })
   await writeAudit(operator, 'MARK_APPLICATION_CONTACT_FAILED', 'MERCHANT_APPLICATION', application._id, application, { status: APPLICATION_STATUS.CONTACT_FAILED }, event.note)
+  await safeCreateNotification({ recipientOpenid: application.applicantOpenid, recipientRole: 'CUSTOMER', category: 'MERCHANT_APPLICATION', type: 'APPLICATION_CONTACT_FAILED', priority: 'HIGH', title: '平台暂未联系成功', summary: '请检查联系电话并保持手机畅通。', statusText: '联系失败', bizType: 'MERCHANT_APPLICATION', bizId: application._id, pagePath: '/pages/merchant-apply/index', dedupeKey: `APPLICATION_CONTACT_FAILED:${application._id}:${timestamp}` })
   return true
 }
 
@@ -406,6 +468,7 @@ async function requestMoreInformation(event, openid) {
     data: { status: APPLICATION_STATUS.NEED_MORE_INFO, statusLabel: getEnumLabel('APPLICATION_STATUS', APPLICATION_STATUS.NEED_MORE_INFO), publicMessage: message, internalNote: String(event.internalNote || ''), updatedAt: now() }
   })
   await writeAudit(operator, 'REQUEST_MORE_INFORMATION', 'MERCHANT_APPLICATION', application._id, application, { status: APPLICATION_STATUS.NEED_MORE_INFO }, message)
+  await safeCreateNotification({ recipientOpenid: application.applicantOpenid, recipientRole: 'CUSTOMER', category: 'MERCHANT_APPLICATION', type: 'APPLICATION_NEED_MORE_INFO', priority: 'HIGH', title: '需要补充入驻资料', summary: message, statusText: '待补资料', bizType: 'MERCHANT_APPLICATION', bizId: application._id, pagePath: '/pages/merchant-apply/index', dedupeKey: `APPLICATION_NEED_MORE_INFO:${application._id}:${now()}` })
   return true
 }
 
@@ -427,6 +490,7 @@ async function setPaymentPending(event, openid) {
     }
   })
   await writeAudit(operator, 'SET_PAYMENT_PENDING', 'MERCHANT_APPLICATION', application._id, application, { status: APPLICATION_STATUS.PAYMENT_PENDING, feeAmount }, '')
+  await safeCreateNotification({ recipientOpenid: application.applicantOpenid, recipientRole: 'CUSTOMER', category: 'MERCHANT_APPLICATION', type: 'APPLICATION_PAYMENT_PENDING', priority: 'HIGH', title: '待完成线下付款', summary: `入驻费用为${(feeAmount / 100).toFixed(2)}元，请查看付款说明。`, statusText: '待付款', bizType: 'MERCHANT_APPLICATION', bizId: application._id, pagePath: '/pages/merchant-apply/index', dedupeKey: `APPLICATION_PAYMENT_PENDING:${application._id}:${feeAmount}` })
   return true
 }
 
@@ -456,6 +520,8 @@ async function confirmOfflinePayment(event, openid) {
     data: { status: APPLICATION_STATUS.PAID, statusLabel: getEnumLabel('APPLICATION_STATUS', APPLICATION_STATUS.PAID), paidAt: timestamp, publicMessage: '平台已确认收到线下付款，等待管理员最终审核。', updatedAt: timestamp }
   })
   await writeAudit(operator, 'CONFIRM_OFFLINE_PAYMENT', 'MERCHANT_APPLICATION', application._id, application, { status: APPLICATION_STATUS.PAID, amount }, event.note)
+  await safeCreateNotification({ recipientOpenid: application.applicantOpenid, recipientRole: 'CUSTOMER', category: 'MERCHANT_APPLICATION', type: 'APPLICATION_PAYMENT_CONFIRMED', priority: 'HIGH', title: '平台已确认收款', summary: '线下付款已经确认，等待管理员最终审核。', statusText: '待审核', bizType: 'MERCHANT_APPLICATION', bizId: application._id, pagePath: '/pages/merchant-apply/index', dedupeKey: `APPLICATION_PAYMENT_CONFIRMED:${application._id}` })
+  await safeNotifyPlatformUsers({ category: 'PLATFORM', type: 'APPLICATION_PAID_PENDING_APPROVAL', priority: 'HIGH', title: '商家申请待最终审核', summary: `${application.storeName}已确认付款，请完成最终审核。`, statusText: '待审核', bizType: 'MERCHANT_APPLICATION', bizId: application._id, pagePath: `/pages/admin-application/index?id=${application._id}`, dedupeKey: `APPLICATION_PAID_PENDING_APPROVAL:${application._id}` }, [PLATFORM_ROLES.ADMIN, PLATFORM_ROLES.SUPER])
   return true
 }
 
@@ -550,6 +616,7 @@ async function approveMerchantApplication(event, openid) {
   })
 
   await writeAudit(operator, 'APPROVE_MERCHANT_APPLICATION', 'MERCHANT_APPLICATION', application._id, application, { status: APPLICATION_STATUS.APPROVED, storeId }, String(event.note || ''))
+  await safeCreateNotification({ recipientOpenid: application.applicantOpenid, recipientRole: 'MERCHANT_OWNER', category: 'MERCHANT_APPLICATION', type: 'APPLICATION_APPROVED', priority: 'HIGH', title: '店铺审核通过', summary: `${application.storeName}已审核通过并正式上线。`, statusText: '已通过', bizType: 'STORE', bizId: storeId, pagePath: '/pages/merchant/index', dedupeKey: `APPLICATION_APPROVED:${application._id}` })
   return { storeId }
 }
 
@@ -564,6 +631,7 @@ async function rejectMerchantApplication(event, openid) {
     data: { status: APPLICATION_STATUS.REJECTED, statusLabel: getEnumLabel('APPLICATION_STATUS', APPLICATION_STATUS.REJECTED), publicMessage: reason, rejectedAt: now(), rejectedBy: openid, updatedAt: now() }
   })
   await writeAudit(operator, 'REJECT_MERCHANT_APPLICATION', 'MERCHANT_APPLICATION', application._id, application, { status: APPLICATION_STATUS.REJECTED }, reason)
+  await safeCreateNotification({ recipientOpenid: application.applicantOpenid, recipientRole: 'CUSTOMER', category: 'MERCHANT_APPLICATION', type: 'APPLICATION_REJECTED', priority: 'HIGH', title: '入驻审核未通过', summary: reason, statusText: '未通过', bizType: 'MERCHANT_APPLICATION', bizId: application._id, pagePath: '/pages/merchant-apply/index', dedupeKey: `APPLICATION_REJECTED:${application._id}:${now()}` })
   return true
 }
 
@@ -674,7 +742,7 @@ async function createOrder(event, openid) {
   const requested = Array.isArray(input.items) ? input.items : []
   if (!requested.length) throw new Error('购物车为空')
 
-  return db.runTransaction(async transaction => {
+  const createdOrder = await db.runTransaction(async transaction => {
     const rawStore = await transaction.collection('stores').doc(input.storeId).get().then(res => res.data).catch(() => null)
     const store = normalizeStore(rawStore)
     if (!store || !storeCanTakeOrders(store)) throw new Error('店铺当前无法接单')
@@ -718,6 +786,22 @@ async function createOrder(event, openid) {
     const added = await transaction.collection('orders').add({ data: order })
     return { _id: added._id, ...order }
   })
+  await safeCreateNotification({
+    recipientOpenid: createdOrder.sellerOpenid,
+    recipientRole: 'MERCHANT_OWNER',
+    category: 'ORDER',
+    type: 'NEW_ORDER',
+    priority: 'URGENT',
+    title: '你有一个新订单',
+    summary: `订单金额${(createdOrder.totalAmount / 100).toFixed(2)}元，共${createdOrder.items.reduce((sum, item) => sum + item.quantity, 0)}件商品。`,
+    statusText: '待接单',
+    bizType: 'ORDER',
+    bizId: createdOrder._id,
+    pagePath: `/pages/order/index?id=${createdOrder._id}&mode=merchant`,
+    dedupeKey: `NEW_ORDER:${createdOrder._id}`,
+    expireAt: now() + 30 * 60 * 1000
+  })
+  return createdOrder
 }
 
 async function listOrders(event, openid) {
@@ -755,7 +839,33 @@ async function updateOrderStatus(event, openid) {
     }
     await transaction.collection('orders').doc(order._id).update({ data: { status: target, statusLabel: getEnumLabel('ORDER_STATUS', target), statusHistory: _.push({ status: target, statusLabel: getEnumLabel('ORDER_STATUS', target), time: now() }), updatedAt: now() } })
   })
-  return db.collection('orders').doc(order._id).get().then(res => res.data)
+  const updatedOrder = await db.collection('orders').doc(order._id).get().then(res => res.data)
+  const noticeMap = {
+    ACCEPTED: { type: 'ORDER_ACCEPTED', title: '商家已接单', summary: `${order.storeName}已接受订单，正在准备商品。`, statusText: '备货中', priority: 'HIGH' },
+    REJECTED: { type: 'ORDER_REJECTED', title: '商家拒绝订单', summary: '商家无法完成本次订单，库存已经恢复。', statusText: '已拒单', priority: 'HIGH' },
+    DELIVERING: { type: 'ORDER_DELIVERING', title: '商品开始配送', summary: '商家正在配送，请留意约定交付位置。', statusText: '配送中', priority: 'HIGH' },
+    DELIVERED: { type: 'ORDER_DELIVERED', title: '商品已经送达', summary: '请及时确认收货并完成线下付款。', statusText: '待收货', priority: 'HIGH' },
+    CANCELED: { type: 'BUYER_CANCELED_ORDER', title: '用户取消了订单', summary: `订单${order.orderNo}已由购买者取消。`, statusText: '已取消', priority: 'HIGH' }
+  }
+  const notice = noticeMap[target]
+  if (notice) {
+    const toMerchant = target === 'CANCELED'
+    await safeCreateNotification({
+      recipientOpenid: toMerchant ? order.sellerOpenid : order.buyerOpenid,
+      recipientRole: toMerchant ? 'MERCHANT_OWNER' : 'CUSTOMER',
+      category: 'ORDER',
+      type: notice.type,
+      priority: notice.priority,
+      title: notice.title,
+      summary: notice.summary,
+      statusText: notice.statusText,
+      bizType: 'ORDER',
+      bizId: order._id,
+      pagePath: `/pages/order/index?id=${order._id}${toMerchant ? '&mode=merchant' : ''}`,
+      dedupeKey: `${notice.type}:${order._id}`
+    })
+  }
+  return updatedOrder
 }
 
 async function getMerchantStats(openid) {
@@ -806,6 +916,20 @@ async function setStorePlatformStatus(event, openid) {
   const platformStatus = event.platformStatus === 'ACTIVE' ? 'ACTIVE' : 'SUSPENDED'
   await db.collection('stores').doc(store._id).update({ data: { platformStatus, platformStatusLabel: getEnumLabel('STORE_PLATFORM_STATUS', platformStatus), updatedAt: now() } })
   await writeAudit(operator, platformStatus === 'ACTIVE' ? 'RESUME_STORE' : 'SUSPEND_STORE', 'STORE', store._id, store, { platformStatus }, String(event.reason || ''))
+  await safeCreateNotification({
+    recipientOpenid: store.ownerOpenid,
+    recipientRole: 'MERCHANT_OWNER',
+    category: 'STORE',
+    type: platformStatus === 'ACTIVE' ? 'STORE_RESUMED' : 'STORE_SUSPENDED',
+    priority: platformStatus === 'ACTIVE' ? 'HIGH' : 'URGENT',
+    title: platformStatus === 'ACTIVE' ? '店铺已经恢复上线' : '店铺已被平台暂停',
+    summary: platformStatus === 'ACTIVE' ? `${store.name}已恢复展示和接单。` : `${store.name}已暂停展示和接单，请联系平台处理。`,
+    statusText: platformStatus === 'ACTIVE' ? '已恢复' : '已暂停',
+    bizType: 'STORE',
+    bizId: store._id,
+    pagePath: '/pages/merchant/index',
+    dedupeKey: `${platformStatus === 'ACTIVE' ? 'STORE_RESUMED' : 'STORE_SUSPENDED'}:${store._id}:${now()}`
+  })
   return true
 }
 
@@ -843,6 +967,19 @@ async function savePlatformUser(event, openid) {
   return true
 }
 
+
+async function getNotificationAdminConfig(openid) {
+  await requirePlatformRole(openid, [PLATFORM_ROLES.ADMIN, PLATFORM_ROLES.SUPER])
+  return notificationService.ensureSharedTemplate()
+}
+
+async function saveNotificationTemplateAction(event, openid) {
+  const operator = await requirePlatformRole(openid, [PLATFORM_ROLES.ADMIN, PLATFORM_ROLES.SUPER])
+  const before = await notificationService.ensureSharedTemplate()
+  const after = await notificationService.saveNotificationTemplate(event.template || {})
+  await writeAudit(operator, 'SAVE_NOTIFICATION_TEMPLATE', 'NOTIFICATION_TEMPLATE', after._id, before, after, '配置统一订阅消息模板')
+  return after
+}
 
 async function listCollectionSchemas(openid) {
   await requirePlatformRole(openid, [PLATFORM_ROLES.OPERATOR, PLATFORM_ROLES.ADMIN, PLATFORM_ROLES.SUPER])
@@ -904,6 +1041,14 @@ exports.main = async event => {
       case 'setStorePlatformStatus': return ok(await setStorePlatformStatus(event, OPENID))
       case 'listPlatformUsers': return ok(await listPlatformUsers(OPENID))
       case 'savePlatformUser': return ok(await savePlatformUser(event, OPENID))
+      case 'getNotificationConfig': return ok(await notificationService.getNotificationConfig())
+      case 'getNotificationAdminConfig': return ok(await getNotificationAdminConfig(OPENID))
+      case 'saveNotificationTemplate': return ok(await saveNotificationTemplateAction(event, OPENID))
+      case 'recordSubscribePermission': return ok(await notificationService.recordSubscribePermission(OPENID, event.permission, event.scene))
+      case 'listNotifications': return ok(await notificationService.listNotifications(OPENID, event))
+      case 'getUnreadNotificationCount': return ok(await notificationService.getUnreadNotificationCount(OPENID))
+      case 'markNotificationRead': return ok(await notificationService.markNotificationRead(OPENID, event.notificationId))
+      case 'markAllNotificationsRead': return ok(await notificationService.markAllNotificationsRead(OPENID))
       case 'listSystemDictionaries': return ok(await listSystemDictionaries(OPENID))
       case 'listCollectionSchemas': return ok(await listCollectionSchemas(OPENID))
       case 'syncChineseDescriptions': return ok(await syncChineseDescriptions(OPENID))

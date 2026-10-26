@@ -1,6 +1,7 @@
 const api = require('../../utils/api')
 const { PLATFORM_ROLE_NAMES } = require('../../utils/roles')
 const { formatTime } = require('../../utils/format')
+const { requestSharedSubscription } = require('../../utils/notifications')
 
 Page({
   data: { loading: true, dashboard: null, roleName: '', canApprove: false, canManageTeam: false },
@@ -22,5 +23,6 @@ Page({
       wx.showModal({ title: '无法进入管理后台', content: error.message || '当前微信用户没有平台管理权限', showCancel: false, success: () => wx.navigateBack() })
     }
   },
-  go(event) { wx.navigateTo({ url: event.currentTarget.dataset.url }) }
+  go(event) { wx.navigateTo({ url: event.currentTarget.dataset.url }) },
+  async enableApprovalNotice() { const result = await requestSharedSubscription('PLATFORM_APPROVAL_NOTICE'); wx.showToast({ title: result.permission === 'ACCEPT' ? '已开启一次审批提醒' : '未获得订阅授权', icon: 'none' }) }
 })

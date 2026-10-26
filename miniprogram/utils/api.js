@@ -7,7 +7,10 @@ const KEYS = {
   myStoreId: 'snacks_mvp_my_store_id',
   profile: 'snacks_mvp_profile',
   application: 'snacks_mvp_merchant_application',
-  platformUsers: 'snacks_mvp_platform_users'
+  platformUsers: 'snacks_mvp_platform_users',
+  notifications: 'snacks_mvp_notifications',
+  notificationPreference: 'snacks_mvp_notification_preference',
+  notificationTemplate: 'snacks_mvp_notification_template'
 }
 
 const now = () => Date.now()
@@ -85,6 +88,7 @@ function initLocalData() {
   if (!wx.getStorageSync(KEYS.stores)) wx.setStorageSync(KEYS.stores, seedStores)
   if (!wx.getStorageSync(KEYS.products)) wx.setStorageSync(KEYS.products, seedProducts)
   if (!wx.getStorageSync(KEYS.orders)) wx.setStorageSync(KEYS.orders, [])
+  if (!wx.getStorageSync(KEYS.notifications)) wx.setStorageSync(KEYS.notifications, [])
   if (!wx.getStorageSync(KEYS.profile)) {
     wx.setStorageSync(KEYS.profile, { nickname: '同学', phone: '', contactName: '', location: '' })
   }
@@ -126,6 +130,39 @@ function localRequest(action, data) {
   let orders = wx.getStorageSync(KEYS.orders) || []
 
   switch (action) {
+    case 'getNotificationConfig': {
+      const template = wx.getStorageSync(KEYS.notificationTemplate) || { templateId: '', enabled: false }
+      return { templateKey: 'SHARED_BUSINESS_NOTICE', templateId: template.templateId || '', enabled: !!template.enabled, keyLabel: '统一业务状态通知模板' }
+    }
+    case 'recordSubscribePermission': {
+      const preference = { permission: data.permission, scene: data.scene, updatedAt: now() }
+      wx.setStorageSync(KEYS.notificationPreference, preference)
+      return clone(preference)
+    }
+    case 'listNotifications': {
+      let list = wx.getStorageSync(KEYS.notifications) || []
+      if (data.category && data.category !== 'ALL') list = list.filter(item => item.category === data.category)
+      return clone(list.sort((a, b) => b.createdAt - a.createdAt))
+    }
+    case 'getUnreadNotificationCount': {
+      const unread = (wx.getStorageSync(KEYS.notifications) || []).filter(item => item.readStatus === 'UNREAD')
+      return { total: unread.length, categories: {} }
+    }
+    case 'markNotificationRead': {
+      const list = wx.getStorageSync(KEYS.notifications) || []
+      const index = list.findIndex(item => item._id === data.notificationId)
+      if (index >= 0) { list[index].readStatus = 'READ'; list[index].readStatusLabel = '已读'; list[index].readAt = now(); wx.setStorageSync(KEYS.notifications, list) }
+      return true
+    }
+    case 'markAllNotificationsRead': {
+      const list = (wx.getStorageSync(KEYS.notifications) || []).map(item => Object.assign({}, item, { readStatus: 'READ', readStatusLabel: '已读', readAt: now() }))
+      wx.setStorageSync(KEYS.notifications, list)
+      return true
+    }
+    case 'getNotificationAdminConfig':
+      return clone(wx.getStorageSync(KEYS.notificationTemplate) || { _id: 'SHARED_BUSINESS_NOTICE', templateId: '', enabled: false, fields: { titleKey: 'thing1', statusKey: 'phrase2', timeKey: 'time3', remarkKey: 'thing4' } })
+    case 'saveNotificationTemplate':
+      wx.setStorageSync(KEYS.notificationTemplate, data.template); return clone(data.template)
     case 'getMyIdentity': {
       const myStoreId = wx.getStorageSync(KEYS.myStoreId)
       const myStore = stores.find(item => item._id === myStoreId) || null

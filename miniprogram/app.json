@@ -16,7 +16,9 @@
     "pages/admin-application/index",
     "pages/admin-stores/index",
     "pages/admin-team/index",
-    "pages/admin-dictionaries/index"
+    "pages/admin-dictionaries/index",
+    "pages/messages/index",
+    "pages/admin-notification/index"
   ],
   "window": {
     "backgroundColor": "#F7F7F5",

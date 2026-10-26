@@ -11,6 +11,7 @@
   </view>
 
   <view class="menu-card card">
+    <view class="menu-item" bindtap="goMessages"><view class="menu-icon red-bg">🔔</view><text>消息通知</text><text wx:if="{{unreadCount}}" class="unread-badge">{{unreadCount > 99 ? '99+' : unreadCount}}</text><text class="menu-arrow">›</text></view>
     <view class="menu-item" bindtap="goOrders"><view class="menu-icon orange-bg">🧾</view><text>我的订单</text><text class="menu-arrow">›</text></view>
     <view class="menu-item" bindtap="goMerchant"><view class="menu-icon green-bg">🛠</view><text>{{myStore && myStore.approvalStatus === 'APPROVED' ? '商家工作台' : '商家入驻'}}</text><text class="menu-arrow">›</text></view>
     <view class="menu-item" bindtap="copyIdentity"><view class="menu-icon blue-bg">🪪</view><text>复制我的身份ID</text><text class="menu-arrow">›</text></view>

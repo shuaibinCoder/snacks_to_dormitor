@@ -1,0 +1,13 @@
+<view class="message-header">
+  <scroll-view class="tabs" scroll-x show-scrollbar="{{false}}"><view class="tabs-inner"><view class="tab {{activeTab === item.key ? 'active' : ''}}" wx:for="{{tabs}}" wx:key="key" data-key="{{item.key}}" bindtap="selectTab">{{item.text}}</view></view></scroll-view>
+  <view class="header-actions"><view bindtap="enableWechatNotice">开启微信提醒</view><view class="divider"></view><view bindtap="markAllRead">全部已读</view></view>
+</view>
+<view class="page message-page">
+  <view wx:if="{{notifications.length}}" class="message-list">
+    <view class="message-card card {{item.unread ? 'unread' : ''}}" wx:for="{{notifications}}" wx:key="_id" data-id="{{item._id}}" bindtap="openMessage">
+      <view class="message-icon">{{item.icon}}<text wx:if="{{item.unread}}" class="unread-dot"></text></view>
+      <view class="message-main"><view class="message-top"><text class="message-title">{{item.title}}</text><text class="message-time">{{item.createdAtText}}</text></view><view class="message-summary">{{item.summary}}</view><view class="message-meta"><text>{{item.typeLabel}}</text><text class="priority priority-{{item.priority}}">{{item.priorityLabel}}</text></view></view><text class="arrow">›</text>
+    </view>
+  </view>
+  <view wx:else class="empty"><text class="empty-icon">🔔</text><view>{{loading ? '正在加载消息…' : '暂时没有新消息'}}</view><text wx:if="{{!loading}}">订单、商家申请和审核进度会在这里通知你</text></view>
+</view>

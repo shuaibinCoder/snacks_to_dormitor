@@ -1,4 +1,4 @@
-const DICTIONARY_VERSION = '2026-10-23-v3'
+const DICTIONARY_VERSION = '2026-10-23-v5'
 
 const DICTIONARIES = {
   USER_ROLE: {
@@ -120,6 +120,98 @@ const DICTIONARIES = {
       { code: 'OTHER', label: '其他方式', description: '由平台备注说明的其他线下付款方式。' }
     ]
   },
+  NOTIFICATION_CATEGORY: {
+    name: '消息分类',
+    description: '站内消息所属的业务分类。',
+    items: [
+      { code: 'ORDER', label: '订单消息', description: '下单、接单、配送和取消等订单消息。' },
+      { code: 'MERCHANT_APPLICATION', label: '商家入驻消息', description: '入驻申请、付款和审核进度消息。' },
+      { code: 'STORE', label: '店铺经营消息', description: '店铺暂停、恢复和经营状态消息。' },
+      { code: 'PLATFORM', label: '平台审批消息', description: '平台运营和管理员需要处理的消息。' },
+      { code: 'SYSTEM', label: '系统通知', description: '平台系统级通知。' }
+    ]
+  },
+  NOTIFICATION_TYPE: {
+    name: '消息类型',
+    description: '触发站内消息和微信订阅消息的具体业务事件。',
+    items: [
+      { code: 'NEW_ORDER', label: '新订单提醒', description: '购买者提交订单后通知商家。' },
+      { code: 'ORDER_ACCEPTED', label: '商家已接单', description: '商家接受订单后通知购买者。' },
+      { code: 'ORDER_REJECTED', label: '商家拒绝订单', description: '商家拒单后通知购买者。' },
+      { code: 'ORDER_DELIVERING', label: '商品开始配送', description: '订单进入配送状态后通知购买者。' },
+      { code: 'ORDER_DELIVERED', label: '商品已经送达', description: '商家标记送达后通知购买者。' },
+      { code: 'BUYER_CANCELED_ORDER', label: '用户取消订单', description: '购买者取消订单后通知商家。' },
+      { code: 'APPLICATION_SUBMITTED', label: '入驻申请已提交', description: '通知申请人入驻申请已经提交。' },
+      { code: 'NEW_MERCHANT_APPLICATION', label: '新商家申请', description: '通知平台人员出现新的入驻申请。' },
+      { code: 'APPLICATION_RESUBMITTED', label: '商家重新提交资料', description: '通知平台人员申请人已经补充资料。' },
+      { code: 'APPLICATION_CONTACTED', label: '平台已完成联系', description: '通知申请人平台已电话联系。' },
+      { code: 'APPLICATION_CONTACT_FAILED', label: '平台暂未联系成功', description: '通知申请人检查联系电话。' },
+      { code: 'APPLICATION_NEED_MORE_INFO', label: '需要补充资料', description: '通知申请人补充入驻资料。' },
+      { code: 'APPLICATION_PAYMENT_PENDING', label: '待完成线下付款', description: '通知申请人查看付款金额和说明。' },
+      { code: 'APPLICATION_PAYMENT_CONFIRMED', label: '平台已确认收款', description: '通知申请人等待最终审核。' },
+      { code: 'APPLICATION_PAID_PENDING_APPROVAL', label: '已付款待最终审核', description: '通知管理员处理已付款申请。' },
+      { code: 'APPLICATION_APPROVED', label: '入驻审核通过', description: '通知申请人店铺已经上线。' },
+      { code: 'APPLICATION_REJECTED', label: '入驻审核未通过', description: '通知申请人审核拒绝原因。' },
+      { code: 'STORE_SUSPENDED', label: '店铺被平台暂停', description: '通知商家店铺已暂停。' },
+      { code: 'STORE_RESUMED', label: '店铺恢复上线', description: '通知商家店铺已恢复。' }
+    ]
+  },
+  NOTIFICATION_PRIORITY: {
+    name: '消息优先级',
+    description: '消息处理的紧急程度。',
+    items: [
+      { code: 'URGENT', label: '紧急', description: '需要立即处理，例如新订单或店铺暂停。' },
+      { code: 'HIGH', label: '高优先级', description: '用户明显关心或需要采取行动。' },
+      { code: 'NORMAL', label: '普通', description: '普通进度或结果通知。' },
+      { code: 'LOW', label: '低优先级', description: '可延迟处理的提示。' }
+    ]
+  },
+  NOTIFICATION_BIZ_TYPE: {
+    name: '消息业务对象',
+    description: '消息点击后关联的业务数据类型。',
+    items: [
+      { code: 'ORDER', label: '订单', description: '关联订单详情。' },
+      { code: 'MERCHANT_APPLICATION', label: '商家入驻申请', description: '关联入驻申请或审批详情。' },
+      { code: 'STORE', label: '店铺', description: '关联店铺或商家工作台。' },
+      { code: 'SYSTEM', label: '系统', description: '不关联具体业务记录。' }
+    ]
+  },
+  NOTIFICATION_READ_STATUS: {
+    name: '消息已读状态',
+    description: '站内消息是否已被接收人查看。',
+    items: [
+      { code: 'UNREAD', label: '未读', description: '消息尚未被打开。' },
+      { code: 'READ', label: '已读', description: '消息已经被打开。' }
+    ]
+  },
+  NOTIFICATION_CHANNEL: {
+    name: '消息发送通道',
+    description: '消息通过哪种方式触达用户。',
+    items: [
+      { code: 'IN_APP', label: '小程序站内消息', description: '保存在小程序消息中心。' },
+      { code: 'WECHAT_SUBSCRIBE', label: '微信订阅消息', description: '用户离开小程序后通过微信服务通知触达。' }
+    ]
+  },
+  NOTIFICATION_DELIVERY_STATUS: {
+    name: '消息发送状态',
+    description: '消息通道发送结果。',
+    items: [
+      { code: 'PENDING', label: '待发送', description: '等待调用发送通道。' },
+      { code: 'SUCCESS', label: '发送成功', description: '消息通道返回成功。' },
+      { code: 'FAILED_FINAL', label: '发送失败', description: '模板、授权或接口错误导致最终失败。' },
+      { code: 'SKIPPED', label: '已跳过', description: '模板未配置或用户没有可用授权次数。' }
+    ]
+  },
+  SUBSCRIBE_PERMISSION: {
+    name: '订阅消息授权状态',
+    description: '用户对统一微信订阅消息模板的授权结果。',
+    items: [
+      { code: 'ACCEPT', label: '已同意', description: '用户同意接收一次模板消息。' },
+      { code: 'REJECT', label: '已拒绝', description: '用户拒绝本次订阅请求。' },
+      { code: 'BAN', label: '永久拒绝', description: '用户选择不再询问或被微信限制。' },
+      { code: 'UNKNOWN', label: '未知', description: '尚未请求授权或无法判断。' }
+    ]
+  },
   AUDIT_ACTION: {
     name: '平台操作类型',
     description: '平台人员在运营后台执行的重要操作。',
@@ -134,7 +226,8 @@ const DICTIONARIES = {
       { code: 'SUSPEND_STORE', label: '暂停店铺', description: '管理员暂停店铺展示和接单。' },
       { code: 'RESUME_STORE', label: '恢复店铺', description: '管理员恢复店铺展示和接单资格。' },
       { code: 'SAVE_PLATFORM_USER', label: '配置平台人员权限', description: '新增或修改平台运营、管理员角色。' },
-      { code: 'SYNC_CHINESE_DESCRIPTIONS', label: '同步数据库中文说明', description: '将枚举中文名称和说明同步到现有数据库记录。' }
+      { code: 'SYNC_CHINESE_DESCRIPTIONS', label: '同步数据库中文说明', description: '将枚举中文名称和说明同步到现有数据库记录。' },
+      { code: 'SAVE_NOTIFICATION_TEMPLATE', label: '配置订阅消息模板', description: '管理员配置统一微信订阅消息模板。' }
     ]
   },
   AUDIT_TARGET_TYPE: {
@@ -146,7 +239,8 @@ const DICTIONARIES = {
       { code: 'PRODUCT', label: '商品', description: '操作对象是商品记录。' },
       { code: 'ORDER', label: '订单', description: '操作对象是订单记录。' },
       { code: 'PLATFORM_USER', label: '平台人员', description: '操作对象是平台运营或管理员账号。' },
-      { code: 'SYSTEM_DICTIONARY', label: '系统数据字典', description: '操作对象是数据库字段和枚举中文说明。' }
+      { code: 'SYSTEM_DICTIONARY', label: '系统数据字典', description: '操作对象是数据库字段和枚举中文说明。' },
+      { code: 'NOTIFICATION_TEMPLATE', label: '通知模板', description: '操作对象是站内或微信订阅消息模板。' }
     ]
   }
 }

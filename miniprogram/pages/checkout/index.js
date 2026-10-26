@@ -1,6 +1,7 @@
 const api = require('../../utils/api')
 const { DELIVERY_METHODS } = require('../../utils/constants')
 const { money } = require('../../utils/format')
+const { requestSharedSubscription } = require('../../utils/notifications')
 
 Page({
   data: {
@@ -31,6 +32,7 @@ Page({
 
     this.setData({ submitting: true })
     try {
+      await requestSharedSubscription('ORDER_SUBMIT')
       api.saveProfile(Object.assign({}, api.getProfile(), { contactName, phone, location }))
       const order = await api.request('createOrder', {
         order: {

@@ -1,19 +1,23 @@
 const api = require('../../utils/api')
 const { PLATFORM_ROLE_NAMES, decorateApplication } = require('../../utils/roles')
+const { refreshUnreadBadge } = require('../../utils/notifications')
 
 Page({
-  data: { profile: {}, identity: null, myStore: null, application: null, platformRoleName: '' },
+  data: { profile: {}, identity: null, myStore: null, application: null, platformRoleName: '', unreadCount: 0 },
   onShow() { this.loadData() },
   async loadData() {
     try {
-      const identity = await api.request('getMyIdentity')
+      const [identity, unread] = await Promise.all([api.request('getMyIdentity'), api.request('getUnreadNotificationCount')])
       this.setData({
         profile: api.getProfile() || {}, identity, myStore: identity.store || null,
         application: decorateApplication(identity.merchantApplication),
-        platformRoleName: PLATFORM_ROLE_NAMES[identity.platformRole] || ''
+        platformRoleName: PLATFORM_ROLE_NAMES[identity.platformRole] || '',
+        unreadCount: Number(unread.total || 0)
       })
+      refreshUnreadBadge()
     } catch (error) { wx.showToast({ title: error.message || '身份加载失败', icon: 'none' }) }
   },
+  goMessages() { wx.navigateTo({ url: '/pages/messages/index' }) },
   goOrders() { wx.switchTab({ url: '/pages/orders/index' }) },
   goMerchant() {
     if (this.data.myStore && this.data.myStore.approvalStatus === 'APPROVED') wx.navigateTo({ url: '/pages/merchant/index' })

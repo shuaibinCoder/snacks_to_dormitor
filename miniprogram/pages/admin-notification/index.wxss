@@ -1,0 +1,3 @@
+.config-page{padding-top:28rpx;padding-bottom:80rpx;}.intro-card{padding:32rpx;border-radius:28rpx;background:linear-gradient(145deg,#fff0df,#fff);margin-bottom:34rpx;}.intro-title{font-size:36rpx;font-weight:900;}.intro-desc{font-size:23rpx;color:#786f67;line-height:1.65;margin-top:12rpx;}.config-form{margin-top:20rpx;}.field-title{margin-top:34rpx;}.field-tip{color:#807971;font-size:22rpx;line-height:1.65;padding:16rpx 6rpx;}.warning{padding:22rpx 25rpx;border-radius:20rpx;background:#fff7e5;color:#956a31;font-size:21rpx;line-height:1.6;margin-top:24rpx;}.save-btn{margin-top:32rpx;}.test-btn{margin-top:18rpx;}
+
+.picker{flex:1;text-align:right;color:#555;}

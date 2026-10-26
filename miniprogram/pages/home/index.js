@@ -1,5 +1,6 @@
 const api = require('../../utils/api')
 const { decorateStore } = require('../../utils/format')
+const { refreshUnreadBadge } = require('../../utils/notifications')
 
 Page({
   data: {
@@ -17,6 +18,7 @@ Page({
 
   onShow() {
     this.loadStores()
+    refreshUnreadBadge()
   },
 
   onPullDownRefresh() {

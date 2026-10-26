@@ -1,9 +1,10 @@
 const api = require('../../utils/api')
 const { decorateOrder } = require('../../utils/format')
+const { refreshUnreadBadge } = require('../../utils/notifications')
 
 Page({
   data: { tabs: ['全部', '进行中', '已完成'], activeTab: 0, orders: [], displayOrders: [], loading: true },
-  onShow() { this.loadOrders() },
+  onShow() { this.loadOrders(); refreshUnreadBadge() },
   onPullDownRefresh() { this.loadOrders().finally(() => wx.stopPullDownRefresh()) },
   async loadOrders() {
     try {

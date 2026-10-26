@@ -1,4 +1,4 @@
-const SCHEMA_VERSION = '2026-10-23-v2'
+const SCHEMA_VERSION = '2026-10-23-v3'
 
 const COLLECTION_SCHEMAS = {
   users: {
@@ -142,6 +142,72 @@ const COLLECTION_SCHEMAS = {
       { field: 'status', label: '订单状态编码', type: 'string', enumType: 'ORDER_STATUS', description: '订单当前履约阶段。' },
       { field: 'statusLabel', label: '订单状态中文名称', type: 'string', description: 'status对应的中文名称。' },
       { field: 'statusHistory', label: '订单状态历史', type: 'object[]', description: '记录每次状态变化的编码、中文名称和时间。' }
+    ]
+  },
+  notifications: {
+    name: '站内消息',
+    description: '保存订单、商家入驻、店铺和平台审批通知，是可靠消息主通道。',
+    fields: [
+      { field: 'recipientOpenid', label: '接收人身份ID', type: 'string', description: '消息接收人的微信OPENID。' },
+      { field: 'recipientRole', label: '接收人角色编码', type: 'string', description: '接收消息时用户所处角色。' },
+      { field: 'recipientRoleLabel', label: '接收人角色中文名称', type: 'string', description: 'recipientRole对应的中文名称。' },
+      { field: 'category', label: '消息分类编码', type: 'string', enumType: 'NOTIFICATION_CATEGORY', description: '订单、商家入驻、店铺、平台或系统消息。' },
+      { field: 'categoryLabel', label: '消息分类中文名称', type: 'string', description: 'category对应的中文名称。' },
+      { field: 'type', label: '消息类型编码', type: 'string', enumType: 'NOTIFICATION_TYPE', description: '具体触发消息的业务事件。' },
+      { field: 'typeLabel', label: '消息类型中文名称', type: 'string', description: 'type对应的中文名称。' },
+      { field: 'priority', label: '消息优先级编码', type: 'string', enumType: 'NOTIFICATION_PRIORITY', description: '消息紧急程度。' },
+      { field: 'priorityLabel', label: '消息优先级中文名称', type: 'string', description: 'priority对应的中文名称。' },
+      { field: 'title', label: '消息标题', type: 'string', description: '消息列表展示标题。' },
+      { field: 'summary', label: '消息摘要', type: 'string', description: '消息列表和订阅消息展示摘要。' },
+      { field: 'statusText', label: '业务状态简述', type: 'string', description: '统一微信模板中的简短状态文字。' },
+      { field: 'bizType', label: '业务对象编码', type: 'string', enumType: 'NOTIFICATION_BIZ_TYPE', description: '消息关联的业务类型。' },
+      { field: 'bizId', label: '业务记录ID', type: 'string', description: '关联订单、申请或店铺ID。' },
+      { field: 'pagePath', label: '跳转页面', type: 'string', description: '点击消息后进入的小程序页面路径。' },
+      { field: 'readStatus', label: '已读状态编码', type: 'string', enumType: 'NOTIFICATION_READ_STATUS', description: '消息是否已经查看。' },
+      { field: 'readStatusLabel', label: '已读状态中文名称', type: 'string', description: 'readStatus对应的中文名称。' },
+      { field: 'dedupeKey', label: '消息去重键', type: 'string', description: '防止同一业务事件重复创建消息。' },
+      { field: 'createdAt', label: '创建时间', type: 'number', description: '消息创建毫秒时间戳。' }
+    ]
+  },
+  notification_deliveries: {
+    name: '消息发送记录',
+    description: '记录站内消息和微信订阅消息是否发送成功以及失败原因。',
+    fields: [
+      { field: 'notificationId', label: '站内消息ID', type: 'string', description: '对应notifications记录ID。' },
+      { field: 'recipientOpenid', label: '接收人身份ID', type: 'string', description: '消息接收人的微信OPENID。' },
+      { field: 'channel', label: '发送通道编码', type: 'string', enumType: 'NOTIFICATION_CHANNEL', description: '站内或微信订阅消息。' },
+      { field: 'channelLabel', label: '发送通道中文名称', type: 'string', description: 'channel对应的中文名称。' },
+      { field: 'templateKey', label: '消息模板键', type: 'string', description: '当前统一使用SHARED_BUSINESS_NOTICE。' },
+      { field: 'templateId', label: '微信模板ID', type: 'string', description: '公众平台配置的订阅消息模板ID。' },
+      { field: 'deliveryStatus', label: '发送状态编码', type: 'string', enumType: 'NOTIFICATION_DELIVERY_STATUS', description: '发送成功、失败或跳过。' },
+      { field: 'deliveryStatusLabel', label: '发送状态中文名称', type: 'string', description: 'deliveryStatus对应的中文名称。' },
+      { field: 'attemptCount', label: '发送尝试次数', type: 'number', description: '调用消息通道的次数。' },
+      { field: 'lastErrorCode', label: '最后错误码', type: 'string', description: '微信接口返回的错误码。' },
+      { field: 'lastErrorMessage', label: '最后错误说明', type: 'string', description: '发送失败或跳过原因。' },
+      { field: 'sentAt', label: '发送成功时间', type: 'number', description: '发送成功毫秒时间戳。' }
+    ]
+  },
+  notification_preferences: {
+    name: '消息订阅授权',
+    description: '记录用户对统一微信订阅消息模板的授权和剩余可用次数。',
+    fields: [
+      { field: 'openid', label: '用户身份ID', type: 'string', description: '授权用户的微信OPENID。' },
+      { field: 'templateKey', label: '消息模板键', type: 'string', description: '统一业务状态通知模板键。' },
+      { field: 'lastPermission', label: '最后授权结果编码', type: 'string', enumType: 'SUBSCRIBE_PERMISSION', description: '最近一次请求订阅的结果。' },
+      { field: 'lastPermissionLabel', label: '授权结果中文名称', type: 'string', description: 'lastPermission对应的中文名称。' },
+      { field: 'grantedCount', label: '可用授权次数', type: 'number', description: '当前可尝试发送的模板消息次数。' },
+      { field: 'lastScene', label: '最后授权场景', type: 'string', description: '下单、营业、提交申请或平台审批。' }
+    ]
+  },
+  notification_templates: {
+    name: '消息模板配置',
+    description: '配置站内消息和统一微信订阅消息模板。',
+    fields: [
+      { field: 'key', label: '模板键', type: 'string', description: '统一使用SHARED_BUSINESS_NOTICE。' },
+      { field: 'keyLabel', label: '模板中文名称', type: 'string', description: '模板用途中文说明。' },
+      { field: 'templateId', label: '微信模板ID', type: 'string', description: '从微信公众平台订阅消息模板库取得。' },
+      { field: 'enabled', label: '是否启用', type: 'boolean', description: '只有开启且配置模板ID后才发送微信订阅消息。' },
+      { field: 'fields', label: '模板字段映射', type: 'object', description: '标题、状态、时间和备注对应的微信模板关键词。' }
     ]
   },
   audit_logs: {
