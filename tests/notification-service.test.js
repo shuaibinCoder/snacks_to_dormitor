@@ -57,12 +57,12 @@ async function run() {
   })
   await service.recordSubscribePermission('merchant-openid', 'ACCEPT', 'MERCHANT_START_BUSINESS')
   const first = await service.createNotification({
-    recipientOpenid: 'merchant-openid', recipientRole: 'MERCHANT_OWNER', category: 'ORDER', type: 'NEW_ORDER', priority: 'URGENT',
+    recipientOpenid: 'merchant-openid', recipientRole: 'MERCHANT_OWNER', category: 'ORDER', type: 'NEW_ORDER', priority: 'URGENT', wechatEnabled: true,
     title: '你有一个新订单', summary: '订单金额12.50元', statusText: '待接单', bizType: 'ORDER', bizId: 'order-1',
     pagePath: '/pages/order/index?id=order-1&mode=merchant', dedupeKey: 'NEW_ORDER:order-1'
   })
   const duplicate = await service.createNotification({
-    recipientOpenid: 'merchant-openid', recipientRole: 'MERCHANT_OWNER', category: 'ORDER', type: 'NEW_ORDER', priority: 'URGENT',
+    recipientOpenid: 'merchant-openid', recipientRole: 'MERCHANT_OWNER', category: 'ORDER', type: 'NEW_ORDER', priority: 'URGENT', wechatEnabled: true,
     title: '重复消息', summary: '', statusText: '待接单', bizType: 'ORDER', bizId: 'order-1', dedupeKey: 'NEW_ORDER:order-1'
   })
 

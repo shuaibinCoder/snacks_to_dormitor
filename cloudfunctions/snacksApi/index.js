@@ -18,6 +18,7 @@ const COLLECTIONS = [
   'notifications',
   'notification_deliveries',
   'notification_preferences',
+  'notification_grants',
   'notification_templates',
   'stores',
   'products',
@@ -780,6 +781,8 @@ async function createOrder(event, openid) {
       location: String(input.location || '').trim(),
       deliveryMethod: String(input.deliveryMethod || ''),
       note: String(input.note || '').trim(),
+      buyerNotificationGrantId: String(input.buyerNotificationGrantId || ''),
+      buyerNotificationAuthorized: !!input.buyerNotificationGrantId,
       status: 'CREATED',
       statusLabel: getEnumLabel('ORDER_STATUS', 'CREATED'),
       statusHistory: [{ status: 'CREATED', statusLabel: getEnumLabel('ORDER_STATUS', 'CREATED'), time: timestamp }],
@@ -789,6 +792,14 @@ async function createOrder(event, openid) {
     const added = await transaction.collection('orders').add({ data: order })
     return { _id: added._id, ...order }
   })
+  if (createdOrder.buyerNotificationGrantId) {
+    const boundGrant = await notificationService.bindGrantToBusiness(openid, createdOrder.buyerNotificationGrantId, 'ORDER', createdOrder._id)
+    if (!boundGrant) {
+      await db.collection('orders').doc(createdOrder._id).update({ data: { buyerNotificationGrantId: '', buyerNotificationAuthorized: false, updatedAt: now() } })
+      createdOrder.buyerNotificationGrantId = ''
+      createdOrder.buyerNotificationAuthorized = false
+    }
+  }
   await safeCreateNotification({
     recipientOpenid: createdOrder.sellerOpenid,
     recipientRole: 'MERCHANT_OWNER',
@@ -853,9 +864,15 @@ async function updateOrderStatus(event, openid) {
   const notice = noticeMap[target]
   if (notice) {
     const toMerchant = target === 'CANCELED'
+    // 商家只接收站内消息；购买者只在管理员选定的一个节点（接单或送达）消耗一次微信授权。
+    const wechatEnabled = !toMerchant && await notificationService.shouldSendBuyerOrderStatus(target)
     await safeCreateNotification({
       recipientOpenid: toMerchant ? order.sellerOpenid : order.buyerOpenid,
       recipientRole: toMerchant ? 'MERCHANT_OWNER' : 'CUSTOMER',
+      subscriptionRole: toMerchant ? 'MERCHANT' : 'BUYER',
+      subscriptionGrantId: toMerchant ? '' : String(order.buyerNotificationGrantId || ''),
+      requireSpecificGrant: !toMerchant,
+      wechatEnabled,
       category: 'ORDER',
       type: notice.type,
       priority: notice.priority,

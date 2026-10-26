@@ -1,15 +1,23 @@
 const api = require('./api')
 const { formatTime } = require('./format')
 
-const CONFIG_CACHE_KEY = 'snacks_notification_config_cache'
+const CONFIG_CACHE_KEY = 'snacks_notification_config_cache_v2'
+const DEFAULT_NOTIFICATION_CONFIG = {
+  templateKey: 'SHARED_BUSINESS_NOTICE',
+  templateId: 'TcxphpfMCtsacjuJ5473DxiAt65tepqn6AGB3CFVcz0',
+  enabled: true,
+  keyLabel: '统一业务状态通知模板',
+  buyerOrderPushStage: 'DELIVERED',
+  buyerOrderPushStageLabel: '商品送达时通知'
+}
 let configCache = null
 
 function readCachedConfig() {
   if (configCache) return configCache
   try {
-    configCache = wx.getStorageSync(CONFIG_CACHE_KEY) || null
+    configCache = wx.getStorageSync(CONFIG_CACHE_KEY) || DEFAULT_NOTIFICATION_CONFIG
   } catch (error) {
-    configCache = null
+    configCache = DEFAULT_NOTIFICATION_CONFIG
   }
   return configCache
 }
@@ -82,8 +90,9 @@ function requestSharedSubscription(scene, subscriptionRole = 'GENERAL') {
     const rawPermission = String(result[config.templateId] || 'unknown').toLowerCase()
     const permissionMap = { accept: 'ACCEPT', reject: 'REJECT', ban: 'BAN', filter: 'FILTER' }
     const permission = permissionMap[rawPermission] || 'UNKNOWN'
+    let permissionRecord = null
     try {
-      await api.request('recordSubscribePermission', { permission, scene, subscriptionRole })
+      permissionRecord = await api.request('recordSubscribePermission', { permission, scene, subscriptionRole })
     } catch (error) {
       console.warn('record subscribe permission failed', error)
     }
@@ -93,7 +102,8 @@ function requestSharedSubscription(scene, subscriptionRole = 'GENERAL') {
       reason: permission === 'ACCEPT' ? 'ACCEPTED' : permission,
       rawPermission,
       templateId: config.templateId,
-      subscriptionRole
+      subscriptionRole,
+      grantId: permissionRecord && permissionRecord.grantId || ''
     }
   }).catch(error => {
     console.warn('request subscribe message failed', error)

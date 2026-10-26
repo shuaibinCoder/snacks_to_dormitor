@@ -6,6 +6,7 @@ Page({
   data: {
     templateId: '', enabled: false,
     states: ['developer', 'trial', 'formal'], stateNames: ['开发版', '体验版', '正式版'], stateIndex: 1,
+    buyerStages: ['ACCEPTED', 'DELIVERED'], buyerStageNames: ['商家接单时通知', '商品送达时通知'], buyerStageIndex: 1,
     titleKey: 'thing1', statusKey: 'phrase2', timeKey: 'time3', remarkKey: 'thing4',
     saving: false, testing: false, diagnostics: null, latestDeliveries: []
   },
@@ -18,9 +19,10 @@ Page({
       ])
       const fields = config.fields || {}
       const stateIndex = Math.max(0, this.data.states.indexOf(config.miniprogramState || 'trial'))
+      const buyerStageIndex = Math.max(0, this.data.buyerStages.indexOf(config.buyerOrderPushStage || 'DELIVERED'))
       updateNotificationConfigCache(config)
       this.setData({
-        templateId: config.templateId || '', enabled: !!config.enabled, stateIndex,
+        templateId: config.templateId || '', enabled: !!config.enabled, stateIndex, buyerStageIndex,
         titleKey: fields.titleKey || 'thing1', statusKey: fields.statusKey || 'phrase2',
         timeKey: fields.timeKey || 'time3', remarkKey: fields.remarkKey || 'thing4',
         diagnostics: this.decorateDiagnostics(diagnostics),
@@ -29,9 +31,9 @@ Page({
     } catch (error) { wx.showToast({ title: error.message || '加载失败', icon: 'none' }) }
   },
   decorateDiagnostics(diagnostics) {
-    const roleOrder = ['BUYER', 'MERCHANT', 'APPLICANT', 'PLATFORM', 'GENERAL']
+    const roleOrder = ['BUYER']
     const preferences = diagnostics.preferences || []
-    const roleNames = { BUYER: '购买者提醒', MERCHANT: '商家提醒', APPLICANT: '申请人提醒', PLATFORM: '平台审批提醒', GENERAL: '通用提醒' }
+    const roleNames = { BUYER: '购买者微信提醒' }
     return {
       configReady: !!(diagnostics.config && diagnostics.config.enabled && diagnostics.config.templateId),
       templateId: diagnostics.config && diagnostics.config.templateId || '',
@@ -45,6 +47,7 @@ Page({
   onField(event) { this.setData({ [event.currentTarget.dataset.field]: event.detail.value }) },
   onSwitch(event) { this.setData({ enabled: event.detail.value }) },
   onState(event) { this.setData({ stateIndex: Number(event.detail.value) }) },
+  onBuyerStage(event) { this.setData({ buyerStageIndex: Number(event.detail.value) }) },
   async save() {
     if (!this.data.templateId.trim()) return wx.showToast({ title: '请填写微信模板ID', icon: 'none' })
     this.setData({ saving: true })
@@ -53,6 +56,7 @@ Page({
         template: {
           templateId: this.data.templateId.trim(), enabled: this.data.enabled,
           miniprogramState: this.data.states[this.data.stateIndex],
+          buyerOrderPushStage: this.data.buyerStages[this.data.buyerStageIndex],
           fields: { titleKey: this.data.titleKey.trim(), statusKey: this.data.statusKey.trim(), timeKey: this.data.timeKey.trim(), remarkKey: this.data.remarkKey.trim() }
         }
       })
@@ -65,7 +69,7 @@ Page({
   async testSubscribe() {
     if (this.data.testing) return
     this.setData({ testing: true })
-    const result = await requestSharedSubscription('ADMIN_TEMPLATE_TEST', 'PLATFORM')
+    const result = await requestSharedSubscription('ADMIN_TEMPLATE_TEST', 'BUYER')
     if (result.permission !== 'ACCEPT') {
       showSubscribeFeedback(result, '订阅授权成功')
       this.setData({ testing: false })
@@ -73,7 +77,7 @@ Page({
     }
     wx.showLoading({ title: '发送测试消息' })
     try {
-      const notification = await api.request('sendTestNotification', { subscriptionRole: 'PLATFORM' })
+      const notification = await api.request('sendTestNotification', { subscriptionRole: 'BUYER' })
       if (notification.wechatSent) {
         wx.showModal({ title: '测试消息已发送', content: '请返回微信首页，在“服务通知”中查看测试消息。如果没有立即出现，请稍等片刻。', showCancel: false })
       } else {

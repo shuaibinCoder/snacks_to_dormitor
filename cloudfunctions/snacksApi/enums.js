@@ -1,4 +1,4 @@
-const DICTIONARY_VERSION = '2026-10-26-v3'
+const DICTIONARY_VERSION = '2026-10-26-v4'
 
 const DICTIONARIES = {
   USER_ROLE: {
@@ -155,6 +155,14 @@ const DICTIONARIES = {
       { code: 'STORE_SUSPENDED', label: '店铺被平台暂停', description: '通知商家店铺已暂停。' },
       { code: 'STORE_RESUMED', label: '店铺恢复上线', description: '通知商家店铺已恢复。' },
       { code: 'TEST_NOTIFICATION', label: '微信提醒测试', description: '用于验证统一订阅消息模板和授权是否可正常发送。' }
+    ]
+  },
+  BUYER_ORDER_PUSH_STAGE: {
+    name: '购买者微信推送节点',
+    description: '每笔订单的一次微信授权选择在哪一个订单节点消耗。',
+    items: [
+      { code: 'ACCEPTED', label: '商家接单时通知', description: '商家接单后立即向购买者发送唯一一次微信通知。' },
+      { code: 'DELIVERED', label: '商品送达时通知', description: '商品送达后向购买者发送唯一一次微信通知，当前默认。' }
     ]
   },
   NOTIFICATION_PRIORITY: {

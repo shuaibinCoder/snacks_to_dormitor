@@ -1,4 +1,6 @@
 const SHARED_TEMPLATE_KEY = 'SHARED_BUSINESS_NOTICE'
+const DEFAULT_TEMPLATE_ID = 'TcxphpfMCtsacjuJ5473DxiAt65tepqn6AGB3CFVcz0'
+const TEMPLATE_POLICY_VERSION = 'BUYER_ORDER_BOUND_V2'
 
 function createNotificationService({ cloud, db, command, now, getEnumLabel }) {
   const _ = command
@@ -14,21 +16,56 @@ function createNotificationService({ cloud, db, command, now, getEnumLabel }) {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
   }
 
+  function phraseValue(value, maxLength = 5) {
+    return String(value || '').replace(/[\n\r]/g, '').trim().slice(0, maxLength)
+  }
+
+  function wechatNoticeTitle(notification) {
+    const titles = {
+      ORDER_ACCEPTED: '接单提醒',
+      ORDER_REJECTED: '拒单提醒',
+      ORDER_DELIVERED: '送达提醒',
+      TEST_NOTIFICATION: '测试通知'
+    }
+    return titles[notification.type] || phraseValue(notification.typeLabel || notification.title, 5)
+  }
+
   async function ensureSharedTemplate() {
     const existing = await db.collection('notification_templates').doc(SHARED_TEMPLATE_KEY).get().then(res => res.data).catch(() => null)
-    if (existing) return existing
+    if (existing) {
+      if (existing.policyVersion !== TEMPLATE_POLICY_VERSION) {
+        const patch = {
+          policyVersion: TEMPLATE_POLICY_VERSION,
+          policyVersionLabel: '仅购买者微信推送，商家使用站内信',
+          templateId: existing.templateId || DEFAULT_TEMPLATE_ID,
+          enabled: true,
+          buyerOrderPushStage: 'DELIVERED',
+          buyerOrderPushStageLabel: '商品送达时通知',
+          miniprogramState: existing.miniprogramState || 'trial',
+          fields: { titleKey: 'phrase8', statusKey: 'phrase23', timeKey: 'time3', remarkKey: 'thing2' },
+          updatedAt: now()
+        }
+        await db.collection('notification_templates').doc(SHARED_TEMPLATE_KEY).update({ data: patch })
+        return { ...existing, ...patch }
+      }
+      return existing
+    }
     const data = {
       key: SHARED_TEMPLATE_KEY,
       keyLabel: '统一业务状态通知模板',
-      description: '订单、商家入驻、店铺和平台审批消息共用的微信订阅消息模板。',
-      templateId: '',
-      enabled: false,
+      description: '当前仅用于购买者订单关键节点微信提醒；商家及平台角色只使用站内消息。',
+      policyVersion: TEMPLATE_POLICY_VERSION,
+      policyVersionLabel: '仅购买者微信推送，商家使用站内信',
+      templateId: DEFAULT_TEMPLATE_ID,
+      enabled: true,
       miniprogramState: 'trial',
+      buyerOrderPushStage: 'DELIVERED',
+      buyerOrderPushStageLabel: '商品送达时通知',
       fields: {
-        titleKey: 'thing1',
-        statusKey: 'phrase2',
+        titleKey: 'phrase8',
+        statusKey: 'phrase23',
         timeKey: 'time3',
-        remarkKey: 'thing4'
+        remarkKey: 'thing2'
       },
       createdAt: now(),
       updatedAt: now()
@@ -44,7 +81,9 @@ function createNotificationService({ cloud, db, command, now, getEnumLabel }) {
       templateId: config.templateId || '',
       enabled: !!(config.enabled && config.templateId),
       keyLabel: config.keyLabel,
-      description: config.description
+      description: config.description,
+      buyerOrderPushStage: config.buyerOrderPushStage || 'DELIVERED',
+      buyerOrderPushStageLabel: config.buyerOrderPushStageLabel || '商品送达时通知'
     }
   }
 
@@ -54,15 +93,19 @@ function createNotificationService({ cloud, db, command, now, getEnumLabel }) {
     const data = {
       key: SHARED_TEMPLATE_KEY,
       keyLabel: '统一业务状态通知模板',
-      description: '订单、商家入驻、店铺和平台审批消息共用的微信订阅消息模板。',
+      description: '当前仅用于购买者订单关键节点微信提醒；商家及平台角色只使用站内消息。',
+      policyVersion: TEMPLATE_POLICY_VERSION,
+      policyVersionLabel: '仅购买者微信推送，商家使用站内信',
       templateId: String(input.templateId || '').trim(),
       enabled: !!input.enabled,
       miniprogramState: ['developer', 'trial', 'formal'].includes(input.miniprogramState) ? input.miniprogramState : 'trial',
+      buyerOrderPushStage: input.buyerOrderPushStage === 'ACCEPTED' ? 'ACCEPTED' : 'DELIVERED',
+      buyerOrderPushStageLabel: input.buyerOrderPushStage === 'ACCEPTED' ? '商家接单时通知' : '商品送达时通知',
       fields: {
-        titleKey: String(fields.titleKey || 'thing1').trim(),
-        statusKey: String(fields.statusKey || 'phrase2').trim(),
+        titleKey: String(fields.titleKey || 'phrase8').trim(),
+        statusKey: String(fields.statusKey || 'phrase23').trim(),
         timeKey: String(fields.timeKey || 'time3').trim(),
-        remarkKey: String(fields.remarkKey || 'thing4').trim()
+        remarkKey: String(fields.remarkKey || 'thing2').trim()
       },
       createdAt: old.createdAt || now(),
       updatedAt: now()
@@ -100,6 +143,27 @@ function createNotificationService({ cloud, db, command, now, getEnumLabel }) {
     const role = String(subscriptionRole || 'GENERAL').toUpperCase()
     const existing = await getPreference(openid, role)
     const accepted = permission === 'ACCEPT'
+    let grantId = ''
+
+    if (accepted) {
+      const grant = {
+        openid,
+        templateKey: SHARED_TEMPLATE_KEY,
+        subscriptionRole: role,
+        subscriptionRoleLabel: getEnumLabel('NOTIFICATION_SUBSCRIPTION_ROLE', role),
+        scene: String(scene || ''),
+        status: 'AVAILABLE',
+        statusLabel: '可用',
+        boundBizType: '',
+        boundBizId: '',
+        createdAt: now(),
+        consumedAt: 0,
+        updatedAt: now()
+      }
+      const added = await db.collection('notification_grants').add({ data: grant })
+      grantId = added._id
+    }
+
     const data = {
       openid,
       templateKey: SHARED_TEMPLATE_KEY,
@@ -109,12 +173,31 @@ function createNotificationService({ cloud, db, command, now, getEnumLabel }) {
       lastPermission: permission,
       lastPermissionLabel: getEnumLabel('SUBSCRIBE_PERMISSION', permission),
       grantedCount: Math.max(0, Number(existing && existing.grantedCount || 0) + (accepted ? 1 : 0)),
+      lastGrantId: grantId,
       lastScene: String(scene || ''),
       updatedAt: now()
     }
     if (existing) await db.collection('notification_preferences').doc(existing._id).update({ data })
     else await db.collection('notification_preferences').add({ data: { ...data, createdAt: now() } })
-    return data
+    return { ...data, grantId }
+  }
+
+  async function bindGrantToBusiness(openid, grantId, bizType, bizId) {
+    if (!grantId) return null
+    const grant = await db.collection('notification_grants').doc(grantId).get().then(res => res.data).catch(() => null)
+    if (!grant || grant.openid !== openid || grant.status !== 'AVAILABLE') return null
+    await db.collection('notification_grants').doc(grantId).update({
+      data: { boundBizType: String(bizType || ''), boundBizId: String(bizId || ''), updatedAt: now() }
+    })
+    return { ...grant, _id: grantId, boundBizType: String(bizType || ''), boundBizId: String(bizId || '') }
+  }
+
+  async function getSpecificGrant(notification) {
+    if (!notification.subscriptionGrantId) return null
+    const grant = await db.collection('notification_grants').doc(notification.subscriptionGrantId).get().then(res => res.data).catch(() => null)
+    if (!grant || grant.openid !== notification.recipientOpenid || grant.status !== 'AVAILABLE') return null
+    if (grant.boundBizId && notification.bizId && grant.boundBizId !== notification.bizId) return null
+    return { ...grant, _id: notification.subscriptionGrantId }
   }
 
   async function addDelivery(notification, channel, status, extra = {}) {
@@ -131,6 +214,7 @@ function createNotificationService({ cloud, db, command, now, getEnumLabel }) {
         channelLabel: getEnumLabel('NOTIFICATION_CHANNEL', channel),
         templateKey: SHARED_TEMPLATE_KEY,
         templateId: extra.templateId || '',
+        subscriptionGrantId: notification.subscriptionGrantId || extra.subscriptionGrantId || '',
         deliveryStatus: status,
         deliveryStatusLabel: getEnumLabel('NOTIFICATION_DELIVERY_STATUS', status),
         attemptCount: Number(extra.attemptCount || 0),
@@ -143,7 +227,12 @@ function createNotificationService({ cloud, db, command, now, getEnumLabel }) {
     })
   }
 
-  async function consumeGrant(preference) {
+  async function consumeGrant(preference, grant) {
+    if (grant && grant._id) {
+      await db.collection('notification_grants').doc(grant._id).update({
+        data: { status: 'CONSUMED', statusLabel: '已使用', consumedAt: now(), updatedAt: now() }
+      })
+    }
     if (!preference || Number(preference.grantedCount || 0) <= 0) return
     await db.collection('notification_preferences').doc(preference._id).update({
       data: { grantedCount: _.inc(-1), updatedAt: now() }
@@ -153,20 +242,25 @@ function createNotificationService({ cloud, db, command, now, getEnumLabel }) {
   async function sendSubscribe(notification) {
     const config = await ensureSharedTemplate()
     const subscriptionRole = getSubscriptionRole(notification)
-    const preference = await getPreference(notification.recipientOpenid, subscriptionRole, true)
+    const preference = await getPreference(notification.recipientOpenid, subscriptionRole, !notification.requireSpecificGrant)
+    const specificGrant = await getSpecificGrant(notification)
     if (!config.enabled || !config.templateId) {
       await addDelivery(notification, 'WECHAT_SUBSCRIBE', 'SKIPPED', { subscriptionRole, lastErrorMessage: '统一订阅消息模板尚未配置或未启用' })
       return false
     }
-    if (!preference || Number(preference.grantedCount || 0) <= 0) {
+    if (notification.requireSpecificGrant && !specificGrant) {
+      await addDelivery(notification, 'WECHAT_SUBSCRIBE', 'SKIPPED', { subscriptionRole, templateId: config.templateId, lastErrorMessage: '当前订单没有绑定本次下单时的微信订阅授权' })
+      return false
+    }
+    if (!notification.requireSpecificGrant && (!preference || Number(preference.grantedCount || 0) <= 0)) {
       await addDelivery(notification, 'WECHAT_SUBSCRIBE', 'SKIPPED', { subscriptionRole, templateId: config.templateId, lastErrorMessage: `${getEnumLabel('NOTIFICATION_SUBSCRIPTION_ROLE', subscriptionRole)}暂无可用订阅授权次数` })
       return false
     }
 
     const fields = config.fields || {}
     const data = {}
-    if (fields.titleKey) data[fields.titleKey] = { value: truncate(notification.title, 20) }
-    if (fields.statusKey) data[fields.statusKey] = { value: truncate(notification.statusText || notification.typeLabel, 5) }
+    if (fields.titleKey) data[fields.titleKey] = { value: phraseValue(wechatNoticeTitle(notification), 5) }
+    if (fields.statusKey) data[fields.statusKey] = { value: phraseValue(notification.statusText || notification.typeLabel, 5) }
     if (fields.timeKey) data[fields.timeKey] = { value: formatDateTime(notification.createdAt) }
     if (fields.remarkKey) data[fields.remarkKey] = { value: truncate(notification.summary, 20) }
 
@@ -179,7 +273,7 @@ function createNotificationService({ cloud, db, command, now, getEnumLabel }) {
         templateId: config.templateId,
         data
       })
-      await consumeGrant(preference)
+      await consumeGrant(preference, specificGrant)
       await addDelivery(notification, 'WECHAT_SUBSCRIBE', 'SUCCESS', { subscriptionRole, templateId: config.templateId, attemptCount: 1, sentAt: now() })
       return true
     } catch (error) {
@@ -223,6 +317,8 @@ function createNotificationService({ cloud, db, command, now, getEnumLabel }) {
       bizTypeLabel: getEnumLabel('NOTIFICATION_BIZ_TYPE', input.bizType || 'SYSTEM'),
       bizId: String(input.bizId || ''),
       pagePath: String(input.pagePath || '/pages/messages/index'),
+      subscriptionGrantId: String(input.subscriptionGrantId || ''),
+      requireSpecificGrant: !!input.requireSpecificGrant,
       readStatus: 'UNREAD',
       readStatusLabel: getEnumLabel('NOTIFICATION_READ_STATUS', 'UNREAD'),
       readAt: 0,
@@ -234,7 +330,7 @@ function createNotificationService({ cloud, db, command, now, getEnumLabel }) {
     const added = await db.collection('notifications').add({ data })
     const notification = { _id: added._id, ...data }
     await addDelivery(notification, 'IN_APP', 'SUCCESS', { attemptCount: 1, sentAt: timestamp })
-    const wechatSent = await sendSubscribe(notification)
+    const wechatSent = input.wechatEnabled === true ? await sendSubscribe(notification) : false
     return { ...notification, wechatSent }
   }
 
@@ -244,6 +340,7 @@ function createNotificationService({ cloud, db, command, now, getEnumLabel }) {
       recipientOpenid: openid,
       recipientRole: subscriptionRole === 'PLATFORM' ? 'PLATFORM_ADMIN' : subscriptionRole === 'MERCHANT' ? 'MERCHANT_OWNER' : 'CUSTOMER',
       subscriptionRole,
+      wechatEnabled: true,
       category: 'SYSTEM',
       type: 'TEST_NOTIFICATION',
       priority: 'NORMAL',
@@ -269,7 +366,9 @@ function createNotificationService({ cloud, db, command, now, getEnumLabel }) {
         templateId: config.templateId || '',
         enabled: !!config.enabled,
         miniprogramState: config.miniprogramState || 'trial',
-        fields: config.fields || {}
+        fields: config.fields || {},
+        buyerOrderPushStage: config.buyerOrderPushStage || 'DELIVERED',
+        buyerOrderPushStageLabel: config.buyerOrderPushStageLabel || '商品送达时通知'
       },
       preferences,
       preference: preferences.find(item => (item.subscriptionRole || 'GENERAL') === 'PLATFORM') || preferences[0] || null,
@@ -278,6 +377,11 @@ function createNotificationService({ cloud, db, command, now, getEnumLabel }) {
         .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0))
         .slice(0, 10)
     }
+  }
+
+  async function shouldSendBuyerOrderStatus(status) {
+    const config = await ensureSharedTemplate()
+    return String(status || '') === String(config.buyerOrderPushStage || 'DELIVERED')
   }
 
   async function notifyPlatformUsers(input, roles) {
@@ -327,9 +431,11 @@ function createNotificationService({ cloud, db, command, now, getEnumLabel }) {
     getNotificationConfig,
     saveNotificationTemplate,
     recordSubscribePermission,
+    bindGrantToBusiness,
     createNotification,
     sendTestNotification,
     getMyNotificationDiagnostics,
+    shouldSendBuyerOrderStatus,
     notifyPlatformUsers,
     listNotifications,
     getUnreadNotificationCount,

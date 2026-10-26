@@ -1,8 +1,8 @@
 <view class="page config-page">
-  <view class="intro-card"><view class="intro-title">统一业务状态通知模板</view><view class="intro-desc">订单、商家入驻、店铺和平台审批共用一个微信订阅消息模板。站内消息不受此配置影响。</view></view>
+  <view class="intro-card"><view class="intro-title">统一业务状态通知模板</view><view class="intro-desc">当前只向购买者发送微信订阅消息；商家、申请人和平台人员只使用站内消息。每笔订单只在一个选定节点推送一次。</view></view>
 
   <view wx:if="{{diagnostics}}" class="diagnostic-card card">
-    <view class="diagnostic-title">当前账号推送诊断</view>
+    <view class="diagnostic-title">当前账号购买者推送诊断</view>
     <view class="diagnostic-row"><text>模板配置</text><text class="{{diagnostics.configReady ? 'ok' : 'bad'}}">{{diagnostics.configReady ? '已启用' : '未启用'}}</text></view>
     <view class="diagnostic-row"><text>消息跳转版本</text><text>{{diagnostics.stateName}}</text></view>
     <view class="role-diagnostic" wx:for="{{diagnostics.rolePreferences}}" wx:key="role"><view><text>{{item.roleName}}</text><label>{{item.permissionLabel}}</label></view><text class="{{item.grantedCount ? 'ok' : 'warn'}}">可用 {{item.grantedCount}} 次</text></view>
@@ -14,6 +14,7 @@
     <view class="form-row"><text class="form-label">模板ID</text><input class="form-input" placeholder="公众平台订阅消息模板ID" value="{{templateId}}" data-field="templateId" bindinput="onField" /></view>
     <view class="form-row"><text class="form-label">启用推送</text><switch checked="{{enabled}}" color="#f36a2d" bindchange="onSwitch" /></view>
     <view class="form-row"><text class="form-label">跳转版本</text><picker class="picker" range="{{stateNames}}" value="{{stateIndex}}" bindchange="onState"><view>{{stateNames[stateIndex]}} ›</view></picker></view>
+    <view class="form-row"><text class="form-label">购买者推送节点</text><picker class="picker" range="{{buyerStageNames}}" value="{{buyerStageIndex}}" bindchange="onBuyerStage"><view>{{buyerStageNames[buyerStageIndex]}} ›</view></picker></view>
   </view>
   <view wx:if="{{states[stateIndex] === 'developer'}}" class="version-warning">你当前选择的是开发版。通过“体验版”二维码测试时，请选择“体验版”并保存，否则消息中的页面无法正确打开。</view>
 
@@ -27,7 +28,7 @@
   </view>
   <view class="warning">你的模板应填写：消息类型 phrase8、状态 phrase23、发送时间 time3、消息内容 thing2。模板字段类型必须与公众平台一致。</view>
   <view class="primary-btn save-btn" bindtap="save">{{saving ? '保存中…' : '保存统一模板'}}</view>
-  <view class="secondary-btn test-btn" bindtap="testSubscribe">{{testing ? '测试中…' : '授权并发送测试消息'}}</view>
+  <view class="secondary-btn test-btn" bindtap="testSubscribe">{{testing ? '测试中…' : '授权并发送购买者测试消息'}}</view>
 
   <view class="section-title delivery-title">最近微信推送记录</view>
   <view class="card delivery-card">

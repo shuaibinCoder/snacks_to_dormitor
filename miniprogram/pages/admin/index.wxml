@@ -17,7 +17,6 @@
       <view wx:if="{{canManageTeam}}" class="admin-tool card" data-url="/pages/admin-team/index" bindtap="go"><view class="tool-icon blue-bg">👥</view><view class="tool-main"><view>平台人员</view><text>配置运营和管理员权限</text></view><text class="arrow">›</text></view>
       <view class="admin-tool card" data-url="/pages/admin-dictionaries/index" bindtap="go"><view class="tool-icon purple-bg">📚</view><view class="tool-main"><view>数据库中文说明</view><text>查看角色、状态和操作枚举含义</text></view><text class="arrow">›</text></view>
       <view wx:if="{{canApprove}}" class="admin-tool card" data-url="/pages/admin-notification/index" bindtap="go"><view class="tool-icon red-bg">🔔</view><view class="tool-main"><view>消息模板配置</view><text>配置统一微信订阅消息模板</text></view><text class="arrow">›</text></view>
-      <view class="admin-tool card" bindtap="enableApprovalNotice"><view class="tool-icon yellow-bg">📨</view><view class="tool-main"><view>开启审批提醒</view><text>申请一次微信订阅消息授权</text></view><text class="arrow">›</text></view>
     </view>
 
     <view class="section-title log-title">最近操作</view>

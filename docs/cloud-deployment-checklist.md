@@ -6,7 +6,7 @@
 2. 选择“上传并部署：云端安装依赖”。
 3. 等待云函数部署完成。
 4. 重新编译小程序。
-5. 确认数据库出现 `users`、`platform_users`、`merchant_applications`、`merchant_payments`、`audit_logs`、`system_dictionaries`、`system_collection_schemas`、`notifications`、`notification_deliveries`、`notification_preferences`、`notification_templates`、`stores`、`products`、`orders`。
+5. 确认数据库出现 `users`、`platform_users`、`merchant_applications`、`merchant_payments`、`audit_logs`、`system_dictionaries`、`system_collection_schemas`、`notifications`、`notification_deliveries`、`notification_preferences`、`notification_grants`、`notification_templates`、`stores`、`products`、`orders`。
 6. 在“我的”复制开发者身份ID。
 7. 在 `platform_users` 手工初始化首个 `SUPER_ADMIN`。
 8. 重新进入“我的”，验证平台管理入口出现。

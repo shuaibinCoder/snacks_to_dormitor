@@ -1,5 +1,5 @@
 const api = require('../../utils/api')
-const { requestSharedSubscription, showSubscribeFeedback, primeNotificationConfig, refreshUnreadBadge, decorateNotification } = require('../../utils/notifications')
+const { refreshUnreadBadge, decorateNotification } = require('../../utils/notifications')
 
 Page({
   data: {
@@ -12,7 +12,7 @@ Page({
     ],
     activeTab: 'ALL', notifications: [], loading: true, unreadCount: 0
   },
-  onShow() { this.loadData(); primeNotificationConfig() },
+  onShow() { this.loadData() },
   onPullDownRefresh() { this.loadData().finally(() => wx.stopPullDownRefresh()) },
   async loadData() {
     try {
@@ -35,9 +35,5 @@ Page({
   markAllRead() {
     if (!this.data.unreadCount) return
     wx.showModal({ title: '全部标记已读', content: '确认将当前账号的所有消息标记为已读吗？', success: async result => { if (!result.confirm) return; try { await api.request('markAllNotificationsRead'); await this.loadData(); wx.showToast({ title: '已全部标记为已读' }) } catch (error) { wx.showToast({ title: error.message || '操作失败', icon: 'none' }) } } })
-  },
-  async enableWechatNotice() {
-    const result = await requestSharedSubscription('MESSAGE_CENTER', 'GENERAL')
-    showSubscribeFeedback(result, '已开启一次微信提醒')
   }
 })

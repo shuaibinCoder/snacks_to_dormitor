@@ -1,6 +1,6 @@
 <view class="message-header">
   <scroll-view class="tabs" scroll-x show-scrollbar="{{false}}"><view class="tabs-inner"><view class="tab {{activeTab === item.key ? 'active' : ''}}" wx:for="{{tabs}}" wx:key="key" data-key="{{item.key}}" bindtap="selectTab">{{item.text}}</view></view></scroll-view>
-  <view class="header-actions"><view bindtap="enableWechatNotice">开启微信提醒</view><view class="divider"></view><view bindtap="markAllRead">全部已读</view></view>
+  <view class="header-actions"><view bindtap="markAllRead">全部已读</view></view>
 </view>
 <view class="page message-page">
   <view wx:if="{{notifications.length}}" class="message-list">

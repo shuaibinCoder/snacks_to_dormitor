@@ -131,8 +131,8 @@ function localRequest(action, data) {
 
   switch (action) {
     case 'getNotificationConfig': {
-      const template = wx.getStorageSync(KEYS.notificationTemplate) || { templateId: '', enabled: false }
-      return { templateKey: 'SHARED_BUSINESS_NOTICE', templateId: template.templateId || '', enabled: !!template.enabled, keyLabel: '统一业务状态通知模板' }
+      const template = wx.getStorageSync(KEYS.notificationTemplate) || { templateId: '', enabled: false, buyerOrderPushStage: 'DELIVERED' }
+      return { templateKey: 'SHARED_BUSINESS_NOTICE', templateId: template.templateId || '', enabled: !!template.enabled, keyLabel: '统一业务状态通知模板', buyerOrderPushStage: template.buyerOrderPushStage || 'DELIVERED', buyerOrderPushStageLabel: template.buyerOrderPushStage === 'ACCEPTED' ? '商家接单时通知' : '商品送达时通知' }
     }
     case 'recordSubscribePermission': {
       const stored = wx.getStorageSync(KEYS.notificationPreference) || []
@@ -140,7 +140,8 @@ function localRequest(action, data) {
       const subscriptionRole = data.subscriptionRole || 'GENERAL'
       const index = list.findIndex(item => item.subscriptionRole === subscriptionRole)
       const previous = index >= 0 ? list[index] : {}
-      const preference = { permission: data.permission, lastPermission: data.permission, lastPermissionLabel: data.permission === 'ACCEPT' ? '已同意' : '已拒绝', subscriptionRole, subscriptionRoleLabel: subscriptionRole, grantedCount: Number(previous.grantedCount || 0) + (data.permission === 'ACCEPT' ? 1 : 0), scene: data.scene, updatedAt: now() }
+      const grantId = data.permission === 'ACCEPT' ? id('grant') : ''
+      const preference = { permission: data.permission, lastPermission: data.permission, lastPermissionLabel: data.permission === 'ACCEPT' ? '已同意' : '已拒绝', subscriptionRole, subscriptionRoleLabel: subscriptionRole, grantedCount: Number(previous.grantedCount || 0) + (data.permission === 'ACCEPT' ? 1 : 0), lastGrantId: grantId, grantId, scene: data.scene, updatedAt: now() }
       if (index >= 0) list[index] = preference
       else list.push(preference)
       wx.setStorageSync(KEYS.notificationPreference, list)

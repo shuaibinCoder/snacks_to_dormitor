@@ -10,3 +10,5 @@
 .safe-note{color:#aaa39b;font-size:22rpx;line-height:1.6;padding:24rpx 12rpx;}
 .checkout-bottom{display:flex;align-items:center;gap:24rpx;}.pay-copy{flex:1;display:flex;flex-direction:column;color:#89827b;font-size:22rpx;}.pay-total{color:#ec5a23;font-size:38rpx;font-weight:850;margin-top:4rpx;}.submit-btn{height:88rpx;width:280rpx;border-radius:44rpx;background:linear-gradient(135deg,#ff873e,#ef5721);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:850;}.submitting{opacity:.6;}
 .item-photo { display:block; background:#f2f2f2; }
+
+.subscribe-tip{display:flex;align-items:center;padding:23rpx 25rpx;margin-bottom:24rpx;border-radius:22rpx;background:#edf5ff;color:#53708e;}.subscribe-icon{font-size:40rpx;margin-right:18rpx;}.subscribe-tip>view{flex:1;}.subscribe-title{font-weight:850;color:#315f8c;}.subscribe-text{font-size:21rpx;line-height:1.55;margin-top:7rpx;}

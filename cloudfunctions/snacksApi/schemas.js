@@ -1,4 +1,4 @@
-const SCHEMA_VERSION = '2026-10-26-v1'
+const SCHEMA_VERSION = '2026-10-26-v3'
 
 const COLLECTION_SCHEMAS = {
   users: {
@@ -139,6 +139,8 @@ const COLLECTION_SCHEMAS = {
       { field: 'location', label: '送达位置', type: 'string', description: '宿舍房间或约定交付位置。' },
       { field: 'deliveryMethod', label: '交付方式', type: 'string', description: '送到门口、公共区域、一楼或自取。' },
       { field: 'note', label: '订单备注', type: 'string', description: '购买者提交的订单补充说明。' },
+      { field: 'buyerNotificationGrantId', label: '购买者本单授权凭证ID', type: 'string', description: '仅使用下单时明确确认产生的单次授权凭证。' },
+      { field: 'buyerNotificationAuthorized', label: '本单是否授权微信提醒', type: 'boolean', description: 'true表示购买者明确同意本单微信提醒。' },
       { field: 'status', label: '订单状态编码', type: 'string', enumType: 'ORDER_STATUS', description: '订单当前履约阶段。' },
       { field: 'statusLabel', label: '订单状态中文名称', type: 'string', description: 'status对应的中文名称。' },
       { field: 'statusHistory', label: '订单状态历史', type: 'object[]', description: '记录每次状态变化的编码、中文名称和时间。' }
@@ -163,6 +165,8 @@ const COLLECTION_SCHEMAS = {
       { field: 'bizType', label: '业务对象编码', type: 'string', enumType: 'NOTIFICATION_BIZ_TYPE', description: '消息关联的业务类型。' },
       { field: 'bizId', label: '业务记录ID', type: 'string', description: '关联订单、申请或店铺ID。' },
       { field: 'pagePath', label: '跳转页面', type: 'string', description: '点击消息后进入的小程序页面路径。' },
+      { field: 'subscriptionGrantId', label: '使用的单次授权凭证ID', type: 'string', description: '微信推送必须匹配当前订单绑定的授权凭证。' },
+      { field: 'requireSpecificGrant', label: '是否要求订单专属授权', type: 'boolean', description: 'true时禁止使用历史遗留授权。' },
       { field: 'readStatus', label: '已读状态编码', type: 'string', enumType: 'NOTIFICATION_READ_STATUS', description: '消息是否已经查看。' },
       { field: 'readStatusLabel', label: '已读状态中文名称', type: 'string', description: 'readStatus对应的中文名称。' },
       { field: 'dedupeKey', label: '消息去重键', type: 'string', description: '防止同一业务事件重复创建消息。' },
@@ -203,6 +207,22 @@ const COLLECTION_SCHEMAS = {
       { field: 'lastScene', label: '最后授权场景', type: 'string', description: '下单、营业、提交申请或平台审批。' }
     ]
   },
+  notification_grants: {
+    name: '单次消息授权凭证',
+    description: '每次购买者明确同意订阅后创建一条凭证，并绑定到本次订单；旧授权不能被新订单复用。',
+    fields: [
+      { field: 'openid', label: '授权用户身份ID', type: 'string', description: '明确同意本次订阅的微信用户OPENID。' },
+      { field: 'templateKey', label: '消息模板键', type: 'string', description: '统一业务状态通知模板键。' },
+      { field: 'subscriptionRole', label: '订阅提醒身份编码', type: 'string', enumType: 'NOTIFICATION_SUBSCRIPTION_ROLE', description: '当前仅订单购买者使用BUYER。' },
+      { field: 'scene', label: '授权场景', type: 'string', description: '例如ORDER_SUBMIT，表示用户在提交订单时确认。' },
+      { field: 'status', label: '凭证状态编码', type: 'string', description: 'AVAILABLE表示可用，CONSUMED表示已发送使用。' },
+      { field: 'statusLabel', label: '凭证状态中文名称', type: 'string', description: '可用或已使用。' },
+      { field: 'boundBizType', label: '绑定业务类型', type: 'string', description: '当前为ORDER。' },
+      { field: 'boundBizId', label: '绑定订单ID', type: 'string', description: '本次授权只允许用于该订单。' },
+      { field: 'createdAt', label: '授权时间', type: 'number', description: '用户确认订阅时的毫秒时间戳。' },
+      { field: 'consumedAt', label: '使用时间', type: 'number', description: '微信消息发送成功后记录的时间。' }
+    ]
+  },
   notification_templates: {
     name: '消息模板配置',
     description: '配置站内消息和统一微信订阅消息模板。',
@@ -211,6 +231,8 @@ const COLLECTION_SCHEMAS = {
       { field: 'keyLabel', label: '模板中文名称', type: 'string', description: '模板用途中文说明。' },
       { field: 'templateId', label: '微信模板ID', type: 'string', description: '从微信公众平台订阅消息模板库取得。' },
       { field: 'enabled', label: '是否启用', type: 'boolean', description: '只有开启且配置模板ID后才发送微信订阅消息。' },
+      { field: 'buyerOrderPushStage', label: '购买者推送节点编码', type: 'string', enumType: 'BUYER_ORDER_PUSH_STAGE', description: '选择商家接单或商品送达时消耗一次购买者微信授权。' },
+      { field: 'buyerOrderPushStageLabel', label: '购买者推送节点中文名称', type: 'string', description: 'buyerOrderPushStage对应的中文名称。' },
       { field: 'fields', label: '模板字段映射', type: 'object', description: '标题、状态、时间和备注对应的微信模板关键词。' }
     ]
   },

@@ -3,6 +3,7 @@
     <text class="tip-emoji">🤝</text>
     <view><view class="tip-title">本单无需在线付款</view><view class="tip-text">商品送达后，请与商家当面完成付款</view></view>
   </view>
+  <view wx:if="{{notificationConfigured}}" class="subscribe-tip"><text class="subscribe-icon">🔔</text><view><view class="subscribe-title">提交订单时可开启一次微信提醒</view><view class="subscribe-text">本次授权只用于：{{buyerPushLabel}}。接单、配送等其他进度可在站内消息查看。</view></view></view>
 
   <view class="card delivery-card">
     <view class="card-title">送达信息</view>
