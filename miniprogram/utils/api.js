@@ -139,13 +139,19 @@ async function requestSnapshot(action, data, config, assertCurrent) {
     try {
       response = await wx.cloud.callContainer({ config: { env: run.env }, path: run.path, method: 'POST', header: { 'X-WX-SERVICE': run.service, 'content-type': 'application/json' }, data: payload })
     } catch (error) {
-      throw new Error('云托管连接失败，请检查环境、服务和访问配置；请求未自动重试')
+      console.error('云托管调用失败', { env: run.env, service: run.service, path: run.path, action, error })
+      const detail = String(error && (error.errMsg || error.message) || error || '')
+      const code = error && (error.errCode || error.code)
+      const wrapped = new Error(`云托管连接失败${code === undefined ? '' : `（${code}）`}${detail ? `：${detail}` : ''}；请求未自动重试`)
+      wrapped.code = code
+      throw wrapped
     }
   } else {
     if (typeof wx.cloud.callFunction !== 'function') throw new Error('当前微信版本不支持云函数')
     try {
       response = await wx.cloud.callFunction({ name: 'snacksApi', config: { env: config.env || undefined }, data: payload })
     } catch (error) {
+      console.error('云函数调用失败', { env: config.env, service: 'snacksApi', action, error })
       throw new Error(error && String(error.errMsg).includes('FunctionName') ? '云函数 snacksApi 未部署或部署到了其他环境' : '云服务连接失败，请检查云环境与云函数部署')
     }
   }

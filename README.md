@@ -59,7 +59,7 @@ useCloud: true,
 backendProvider: 'cloudfunction',
 cloudRun: {
   env: 'prod-d0gs4er2552d66779',
-  service: '', // 确认后可固定填写，也可由超级管理员在测试面板中输入。
+  service: 'springboot-7j2n', // 控制台服务名称，不是版本名或公网域名。
   path: '/api/snacks'
 }
 ```
@@ -71,7 +71,18 @@ cloudRun: {
 - 切换后目标服务若停机，可完全退出并冷启动恢复默认后端；这不是自动故障回退。
 - 原 `globalData.env` 继续用于云函数和商品图片云存储，不能改成云托管环境；MySQL 只存云文件 ID。
 - 初始化和业务统一经过 `utils/api.js`。云托管使用 `wx.cloud.callContainer`、独立环境和 `X-WX-SERVICE`，不由客户端发送身份头。
-- 云托管环境/服务缺失、不支持 API、网络错误、身份拒绝和初始化失败均明确提示，不自动重试写请求，也不回退到云函数或本地数据。
+- 云托管环境/服务缺失、不支持 API、网络错误、身份拒绝和初始化失败均明确提示，不自动重试写请求，也不回退到云函数或本地数据。SDK 调用失败会显示并记录原始 `errMsg`、错误码（如有），不含数据库凭据。域名无需加入 request 合法域名，业务使用 `wx.cloud.callContainer`，不要用 `wx.request` 或公网域名直接代替。
+- 可先只读验证微信链路。在微信开发者工具 Console 执行：
+  ```js
+  wx.cloud.callContainer({
+    config: { env: 'prod-d0gs4er2552d66779' },
+    path: '/actuator/health/readiness',
+    method: 'GET',
+    header: { 'X-WX-SERVICE': 'springboot-7j2n' }
+  }).then(res => console.log('健康检查', res.statusCode, res.data))
+    .catch(err => console.error('原始错误', err))
+  ```
+  返回 HTTP 200 且 `status=UP` 后再检查超级管理员切换。域名直连返回 503 不等同于 SDK 失败，必须分别排查域名路由和微信网关；控制台显示“服务正常”只说明实例状态，不等于 Java 接口已验证。
 - 待结算、下单请求和通知缓存按后端、环境及服务隔离；联系人本机资料共用。云托管未取得当前服务通知配置前按关闭处理，不沿用云函数模板或 grant。
 - Java 下单使用稳定 `requestId`，结果未知时按原内容重试并沿用原授权；修改内容需重新进入结算，先核实是否已下单。已有商品保存携带 `version`，过期提示刷新。原云函数忽略这两个字段，不因此获得 Java 的幂等和版本保护。
 - 新分享链接带 `backend/backendScope`，Java 通知带云托管来源。旧外部链接默认属于云函数，来源不匹配只提示并阻断，不自动切换或查询另一套库。
