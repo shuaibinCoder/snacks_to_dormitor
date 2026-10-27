@@ -1,4 +1,5 @@
 const api = require('../../utils/api')
+const backend = require('../../utils/backend')
 const { DELIVERY_METHODS } = require('../../utils/constants')
 const { money } = require('../../utils/format')
 const { requestSharedSubscription, primeNotificationConfig } = require('../../utils/notifications')
@@ -18,13 +19,17 @@ Page({
         notificationLoading: false
       })
     }).catch(() => this.setData({ notificationLoading: false }))
-    const pending = wx.getStorageSync('snacks_pending_checkout')
+    const pending = backend.getPendingCheckout()
     if (!pending || !pending.store) return wx.navigateBack()
+    this._requestId = pending.requestId
+    this._attempt = pending.attempt || null
     const profile = api.getProfile() || {}
     const goods = pending.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
     this.setData({
       store: pending.store, items: pending.items, goodsTotal: money(goods), total: money(goods + (pending.store.deliveryFee || 0)),
-      contactName: profile.contactName || '', phone: profile.phone || '', location: profile.location || ''
+      contactName: (this._attempt || profile).contactName || '', phone: (this._attempt || profile).phone || '', location: (this._attempt || profile).location || '',
+      note: this._attempt ? this._attempt.note : '',
+      methodIndex: this._attempt ? Math.max(0, DELIVERY_METHODS.indexOf(this._attempt.deliveryMethod)) : 0
     })
   },
 
@@ -60,24 +65,29 @@ Page({
 
     this._submitting = true
     try {
-      const subscribeResult = await this.requestBuyerOrderNotice()
+      const input = {
+        requestId: this._requestId, storeId: this.data.store._id,
+        items: this.data.items.map(item => ({ productId: item._id, quantity: item.quantity })),
+        contactName: contactName.trim(), phone, location: location.trim(),
+        deliveryMethod: methods[methodIndex], note: this.data.note.trim()
+      }
+      if (this._attempt && Object.keys(input).some(key => JSON.stringify(input[key]) !== JSON.stringify(this._attempt[key]))) {
+        throw new Error('上次下单结果待确认，请先查看订单列表，或按原信息重试')
+      }
+      const subscribeResult = this._attempt ? { permission: 'SKIP' } : await this.requestBuyerOrderNotice()
       this.setData({ submitting: true })
       if (subscribeResult.permission !== 'ACCEPT' && subscribeResult.permission !== 'SKIP') {
         wx.showToast({ title: subscribeResult.errorMessage || '微信提醒未开启，将使用站内消息', icon: 'none' })
       }
 
       api.saveProfile(Object.assign({}, api.getProfile(), { contactName, phone, location }))
-      const order = await api.request('createOrder', {
-        order: {
-          storeId: this.data.store._id,
-          items: this.data.items.map(item => ({ productId: item._id, quantity: item.quantity })),
-          contactName: contactName.trim(), phone, location: location.trim(),
-          deliveryMethod: methods[methodIndex], note: this.data.note.trim(),
-          buyerNotificationGrantId: subscribeResult.permission === 'ACCEPT' ? String(subscribeResult.grantId || '') : ''
-        }
-      })
-      wx.removeStorageSync('snacks_pending_checkout')
-      wx.redirectTo({ url: `/pages/order/index?id=${order._id}&created=1` })
+      const attempt = this._attempt || { ...input, buyerNotificationGrantId: subscribeResult.permission === 'ACCEPT' ? String(subscribeResult.grantId || '') : '' }
+      // 发送前保存完整请求；超时后重试沿用原编号及授权，不重复弹授权框。
+      backend.saveCheckoutAttempt(attempt)
+      this._attempt = attempt
+      const order = await api.request('createOrder', { order: attempt })
+      backend.clearPendingCheckout()
+      wx.redirectTo({ url: backend.withBackend(`/pages/order/index?id=${order._id}&created=1`) })
     } catch (error) {
       wx.showToast({ title: error.message || '下单失败', icon: 'none' })
     } finally {

@@ -1,4 +1,5 @@
 const api = require('../../utils/api')
+const backend = require('../../utils/backend')
 const { decorateStore } = require('../../utils/format')
 const { refreshUnreadBadge } = require('../../utils/notifications')
 
@@ -65,7 +66,7 @@ Page({
   onShareAppMessage() {
     return {
       title: '宿舍里的零食铺，搜店名就能下单',
-      path: '/pages/home/index'
+      path: backend.withBackend('/pages/home/index')
     }
   }
 })

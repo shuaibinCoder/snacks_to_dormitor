@@ -1,4 +1,5 @@
 const { PRODUCT_EMOJIS } = require('./constants')
+const backend = require('./backend')
 
 const KEYS = {
   stores: 'snacks_mvp_stores',
@@ -94,33 +95,140 @@ function initLocalData() {
   }
 }
 
-function cloudEnabled() {
+function cloudEnabled() { return backend.provider() !== 'local' }
+
+/** 请求固定使用发起时的后端；切换检查期间禁止新的业务请求。 */
+async function request(action, data = {}, config = backend.settings()) {
+  if (config.backendSwitchState === 'checking') {
+    throw new Error('正在检查后端切换，请稍后再试')
+  }
+  const scope = backend.namespace(config)
+  const generation = config.backendGeneration || 0
+  const snapshot = { ...config, cloudRun: { ...(config.cloudRun || {}) } }
+  const assertCurrent = () => {
+    if (scope !== backend.namespace(config) || generation !== (config.backendGeneration || 0)) {
+      throw new Error('后端已切换，请重新进入页面；原请求不会在新后端重试')
+    }
+    if (config.backendEntryError) {
+      throw new Error(config.backendEntryError)
+    }
+  }
+  config.pendingBackendRequests = (config.pendingBackendRequests || 0) + 1
   try {
-    const app = getApp()
-    return !!(app.globalData && app.globalData.useCloud && wx.cloud)
-  } catch (e) {
-    return false
+    const result = await requestSnapshot(action, data, snapshot, assertCurrent)
+    assertCurrent()
+    return result
+  } finally {
+    config.pendingBackendRequests -= 1
   }
 }
 
-async function request(action, data = {}) {
-  if (cloudEnabled()) {
-    let response
+async function requestSnapshot(action, data, config, assertCurrent) {
+  const provider = backend.provider(config)
+  if (config.backendEntryError) throw new Error(config.backendEntryError)
+  if (provider === 'local') return action === 'initCollections' ? true : localRequest(action, data)
+  if (!wx.cloud) throw new Error('当前微信版本不支持云服务，请升级微信')
+  if (action !== 'initCollections' && config.cloudReady) await config.cloudReady
+  assertCurrent()
+  let response
+  const payload = { ...data, action }
+  if (provider === 'cloudrun') {
+    const run = config.cloudRun || {}
+    if (!run.env || !run.service || !run.path || !run.path.startsWith('/')) throw new Error('请配置云托管环境 ID、服务名和接口路径')
+    if (typeof wx.cloud.callContainer !== 'function') throw new Error('当前微信版本不支持云托管，请升级微信')
     try {
-      const app = getApp()
-      if (action !== 'initCollections' && app.globalData.cloudReady) await app.globalData.cloudReady
-      response = await wx.cloud.callFunction({ name: 'snacksApi', data: { action, ...data } })
+      response = await wx.cloud.callContainer({ config: { env: run.env }, path: run.path, method: 'POST', header: { 'X-WX-SERVICE': run.service, 'content-type': 'application/json' }, data: payload })
     } catch (error) {
-      console.error(`Cloud action failed: ${action}`, error)
-      const message = error && error.errMsg && error.errMsg.includes('FunctionName')
-        ? '云函数 snacksApi 未部署或部署到了其他环境'
-        : '云服务连接失败，请检查云环境与云函数部署'
-      throw new Error(message)
+      throw new Error('云托管连接失败，请检查环境、服务和访问配置；请求未自动重试')
     }
-    if (response.result && response.result.success) return response.result.data
-    throw new Error((response.result && response.result.message) || `云服务请求失败：${action}`)
+  } else {
+    if (typeof wx.cloud.callFunction !== 'function') throw new Error('当前微信版本不支持云函数')
+    try {
+      response = await wx.cloud.callFunction({ name: 'snacksApi', config: { env: config.env || undefined }, data: payload })
+    } catch (error) {
+      throw new Error(error && String(error.errMsg).includes('FunctionName') ? '云函数 snacksApi 未部署或部署到了其他环境' : '云服务连接失败，请检查云环境与云函数部署')
+    }
   }
-  return localRequest(action, data)
+  let result = provider === 'cloudrun' ? response && response.data : response && response.result
+  if (typeof result === 'string') {
+    try { result = JSON.parse(result) } catch (error) { throw new Error('后端返回格式不正确') }
+  }
+  if (provider === 'cloudrun' && !(response.statusCode >= 200 && response.statusCode < 300)) {
+    const error = new Error(result && result.message || `云托管请求失败：HTTP ${response.statusCode}`)
+    error.code = result && result.code
+    throw error
+  }
+  if (result && result.success === true) return result.data
+  const error = new Error(result && result.message || `云服务请求失败：${action}`)
+  error.code = result && result.code
+  throw error
+}
+
+/** 仅切换本次运行的后端；两边均验证超级管理员，不复制权限或业务数据。 */
+async function switchBackend(target, service, activate, config = backend.settings()) {
+  if (!config.useCloud || !['cloudfunction', 'cloudrun'].includes(target)) {
+    throw new Error('只支持在云开发和云托管之间切换')
+  }
+  if (config.backendSwitchState || config.pendingBackendRequests > 0) {
+    throw new Error('还有请求正在处理，请等待完成后再切换')
+  }
+  const run = { ...(config.cloudRun || {}) }
+  if (target === 'cloudrun') {
+    run.service = String(service || '').trim()
+    if (!run.env || !run.path || !run.path.startsWith('/')) {
+      throw new Error('请先配置云托管环境 ID 和接口路径')
+    }
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(run.service)) {
+      throw new Error('请填写服务列表中的服务名，不是域名、网址或端口')
+    }
+  }
+  if (target === backend.provider(config) && (target !== 'cloudrun' || run.service === config.cloudRun.service)) {
+    return false
+  }
+  if (typeof activate !== 'function') {
+    throw new Error('缺少页面重载处理，不能切换后端')
+  }
+  const previous = { ...config }
+  const source = { ...config, cloudRun: { ...(config.cloudRun || {}) }, pendingBackendRequests: 0 }
+  const candidate = {
+    ...source, backendProvider: target, cloudRun: run,
+    backendEntryError: '', cloudReady: Promise.resolve()
+  }
+  let committed = false
+  config.backendSwitchState = 'checking'
+  try {
+    const operator = await request('getMyIdentity', {}, source)
+    if (!operator || operator.platformRole !== 'SUPER_ADMIN' || !operator.openid) {
+      throw new Error('只有当前后端的超级管理员可以切换测试后端')
+    }
+    candidate.cloudReady = request('initCollections', {}, candidate)
+    await candidate.cloudReady
+    const identity = await request('getMyIdentity', {}, candidate)
+    if (!identity || identity.platformRole !== 'SUPER_ADMIN' || identity.openid !== operator.openid) {
+      throw new Error('目标后端尚未给当前账号配置超级管理员权限，请先在目标库授权；本次未切换')
+    }
+    const notificationConfig = await request('getNotificationConfig', {}, candidate)
+    Object.assign(config, {
+      backendProvider: target, cloudRun: run, backendEntryError: '',
+      cloudReady: Promise.resolve(), backendGeneration: (previous.backendGeneration || 0) + 1,
+      backendSwitchState: 'activating'
+    })
+    committed = true
+    await activate(notificationConfig || { enabled: false, templateId: '' })
+    return true
+  } catch (error) {
+    if (committed) {
+      // 页面重载失败时恢复原配置，并使候选后端尚未返回的请求失效。
+      Object.assign(config, {
+        backendProvider: previous.backendProvider, cloudRun: previous.cloudRun,
+        backendEntryError: previous.backendEntryError, cloudReady: previous.cloudReady,
+        backendGeneration: config.backendGeneration + 1
+      })
+    }
+    throw error
+  } finally {
+    config.backendSwitchState = ''
+  }
 }
 
 function localRequest(action, data) {
@@ -398,8 +506,10 @@ function localRequest(action, data) {
 
 async function uploadProductImage(tempFilePath) {
   if (cloudEnabled()) {
+    if (!wx.cloud || typeof wx.cloud.uploadFile !== 'function') throw new Error('当前微信版本不支持云存储')
     const suffix = (tempFilePath.match(/\.[a-zA-Z0-9]+$/) || ['.jpg'])[0]
     const result = await wx.cloud.uploadFile({
+      config: { env: backend.settings().env || undefined },
       cloudPath: `products/${Date.now()}_${Math.random().toString(36).slice(2, 8)}${suffix}`,
       filePath: tempFilePath
     })
@@ -425,4 +535,4 @@ function resetDemoData() {
   initLocalData()
 }
 
-module.exports = { request, initLocalData, uploadProductImage, getProfile, saveProfile, resetDemoData, KEYS }
+module.exports = { request, switchBackend, initLocalData, uploadProductImage, getProfile, saveProfile, resetDemoData, KEYS }

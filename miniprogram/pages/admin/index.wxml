@@ -1,6 +1,7 @@
 <view wx:if="{{dashboard}}" class="admin-page">
   <view class="admin-hero">
     <view class="admin-eyebrow">PLATFORM CONSOLE</view><view class="admin-title">平台管理后台</view><view class="role-pill">{{roleName}}</view>
+    <view class="backend-current">当前后端：{{backendLabel}}</view>
     <view class="admin-stats">
       <view><text>{{dashboard.pendingApplications}}</text><label>处理中申请</label></view>
       <view><text>{{dashboard.paymentPending}}</text><label>待付款</label></view>
@@ -9,6 +10,20 @@
     </view>
   </view>
   <view class="page admin-body">
+    <view wx:if="{{canSwitchBackend}}" class="card backend-card">
+      <view class="backend-heading"><view class="section-title">后端测试切换</view><text class="backend-scope">仅本机 · 本次运行</text></view>
+      <view class="backend-description">切换前验证两边的超级管理员权限，不迁移数据，不影响其他用户。</view>
+      <view class="backend-field-label">云托管环境 ID</view>
+      <view class="backend-env">{{cloudRunEnv || '未配置'}}</view>
+      <view class="backend-field-label">云托管服务名</view>
+      <input class="backend-service" value="{{cloudRunService}}" bindinput="onServiceInput" disabled="{{switching || backendProvider === 'cloudrun'}}" maxlength="128" placeholder="填写服务名称，不是域名" />
+      <view class="backend-help">在云托管控制台「服务列表」复制服务名称。</view>
+      <view class="backend-options">
+        <button class="backend-option {{backendProvider === 'cloudfunction' ? 'backend-selected' : ''}}" disabled="{{switching || backendProvider === 'cloudfunction'}}" data-provider="cloudfunction" bindtap="changeBackend">云开发 · 原云函数</button>
+        <button class="backend-option {{backendProvider === 'cloudrun' ? 'backend-selected' : ''}}" disabled="{{switching || backendProvider === 'cloudrun'}}" data-provider="cloudrun" bindtap="changeBackend">云托管 · Java</button>
+      </view>
+      <view class="backend-warning">{{switching ? '正在检查连接、权限并重新加载页面，请勿重复操作…' : '切换将关闭已有页面，未保存的编辑会丢失。冷启动恢复默认云开发；新库没有管理员权限时不会切换。'}}</view>
+    </view>
     <view class="section-title">管理功能</view>
     <view class="admin-tools">
       <view class="admin-tool card" data-url="/pages/messages/index" bindtap="go"><view class="tool-icon red-bg">🔔</view><view class="tool-main"><view>消息通知</view><text>查看新申请、待审核和平台消息</text></view><text class="arrow">›</text></view>

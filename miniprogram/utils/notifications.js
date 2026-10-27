@@ -1,4 +1,5 @@
 const api = require('./api')
+const backend = require('./backend')
 const { formatTime } = require('./format')
 
 const CONFIG_CACHE_KEY = 'snacks_notification_config_cache_v2'
@@ -10,39 +11,42 @@ const DEFAULT_NOTIFICATION_CONFIG = {
   buyerOrderPushStage: 'DELIVERED',
   buyerOrderPushStageLabel: '商品送达时通知'
 }
-let configCache = null
+const configCache = new Map()
 
 function readCachedConfig() {
-  if (configCache) return configCache
+  const key = backend.cacheKey(CONFIG_CACHE_KEY)
+  if (configCache.has(key)) return configCache.get(key)
+  const fallback = backend.provider() === 'cloudfunction' ? DEFAULT_NOTIFICATION_CONFIG : { enabled: false, templateId: '' }
+  let config = fallback
   try {
-    configCache = wx.getStorageSync(CONFIG_CACHE_KEY) || DEFAULT_NOTIFICATION_CONFIG
-  } catch (error) {
-    configCache = DEFAULT_NOTIFICATION_CONFIG
-  }
-  return configCache
+    // 云托管每次启动先取本环境配置，不使用旧模板兜底授权。
+    if (backend.provider() === 'cloudfunction') config = wx.getStorageSync(key) || fallback
+  } catch (error) { /* 缓存不可用时只采用当前通道默认值。 */ }
+  return config
 }
 
-function updateNotificationConfigCache(config) {
-  configCache = config || null
+function updateNotificationConfigCache(config, key = backend.cacheKey(CONFIG_CACHE_KEY)) {
+  if (config) configCache.set(key, config)
+  else configCache.delete(key)
   try {
-    if (config) wx.setStorageSync(CONFIG_CACHE_KEY, config)
-    else wx.removeStorageSync(CONFIG_CACHE_KEY)
+    if (config) wx.setStorageSync(key, config)
+    else wx.removeStorageSync(key)
   } catch (error) {
     console.warn('cache notification config failed', error)
   }
-  return configCache
+  return config
 }
 
 async function primeNotificationConfig(force = false) {
-  if (!force) {
-    const cached = readCachedConfig()
-    if (cached) return cached
-  }
+  const key = backend.cacheKey(CONFIG_CACHE_KEY)
+  if (!force && configCache.has(key)) return configCache.get(key)
   try {
     const config = await api.request('getNotificationConfig')
-    return updateNotificationConfigCache(config)
+    updateNotificationConfigCache(config, key)
+    return key === backend.cacheKey(CONFIG_CACHE_KEY) ? config : readCachedConfig()
   } catch (error) {
     console.warn('load notification config failed', error)
+    if (backend.provider() === 'cloudrun') updateNotificationConfigCache({ enabled: false, templateId: '' }, key)
     return readCachedConfig()
   }
 }
@@ -63,6 +67,7 @@ function classifySubscribeError(error) {
  * 否则微信会认为已经脱离用户点击手势并拒绝弹出授权框。
  */
 function requestSharedSubscription(scene, subscriptionRole = 'GENERAL') {
+  const source = backend.namespace()
   const config = readCachedConfig()
   if (!config) {
     primeNotificationConfig(true)
@@ -92,6 +97,7 @@ function requestSharedSubscription(scene, subscriptionRole = 'GENERAL') {
     const permission = permissionMap[rawPermission] || 'UNKNOWN'
     let permissionRecord = null
     try {
+      if (source !== backend.namespace()) throw new Error('订阅期间后端配置已变化，请重新进入页面')
       permissionRecord = await api.request('recordSubscribePermission', { permission, scene, subscriptionRole })
     } catch (error) {
       console.warn('record subscribe permission failed', error)

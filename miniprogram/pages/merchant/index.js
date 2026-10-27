@@ -1,4 +1,5 @@
 const api = require('../../utils/api')
+const backend = require('../../utils/backend')
 const { money } = require('../../utils/format')
 
 Page({
@@ -15,5 +16,5 @@ Page({
   goMessages() { wx.navigateTo({ url: '/pages/messages/index' }) },
   go(event) { wx.navigateTo({ url: event.currentTarget.dataset.url }) },
   previewStore() { wx.navigateTo({ url: `/pages/store/index?id=${this.data.store._id}` }) },
-  onShareAppMessage() { const store = this.data.store; return { title: `${store.name}｜零食送到寝室`, path: `/pages/store/index?id=${store._id}` } }
+  onShareAppMessage() { const store = this.data.store; return { title: `${store.name}｜零食送到寝室`, path: backend.withBackend(`/pages/store/index?id=${store._id}`) } }
 })

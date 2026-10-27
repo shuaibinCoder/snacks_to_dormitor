@@ -1,4 +1,5 @@
 const api = require('../../utils/api')
+const backend = require('../../utils/backend')
 const { decorateStore, decorateProduct, money } = require('../../utils/format')
 
 Page({
@@ -71,12 +72,12 @@ Page({
     if (!this.data.cartCount) return
     const total = this.data.cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
     if (total < this.data.store.minimumOrder) return wx.showToast({ title: `还差${money(this.data.store.minimumOrder - total)}元起送`, icon: 'none' })
-    wx.setStorageSync('snacks_pending_checkout', { store: this.data.store, items: this.data.cartItems })
+    backend.savePendingCheckout({ store: this.data.store, items: this.data.cartItems })
     wx.navigateTo({ url: '/pages/checkout/index' })
   },
 
   onShareAppMessage() {
     const store = this.data.store
-    return { title: store ? `${store.name}｜宿舍零食送到门口` : '宿舍零食铺', path: `/pages/store/index?id=${this.data.storeId}` }
+    return { title: store ? `${store.name}｜宿舍零食送到门口` : '宿舍零食铺', path: backend.withBackend(`/pages/store/index?id=${this.data.storeId}`) }
   }
 })
