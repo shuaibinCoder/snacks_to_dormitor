@@ -213,7 +213,15 @@ async function switchBackend(target, service, activate, config = backend.setting
     if (!identity || identity.platformRole !== 'SUPER_ADMIN' || identity.openid !== operator.openid) {
       throw new Error('目标后端尚未给当前账号配置超级管理员权限，请先在目标库授权；本次未切换')
     }
-    const notificationConfig = await request('getNotificationConfig', {}, candidate)
+    let notificationConfig = { enabled: false, templateId: '' }
+    try {
+      notificationConfig = await request('getNotificationConfig', {}, candidate)
+    } catch (error) {
+      // 通知可稍后配置，未初始化不能阻断其他业务的后端测试。
+      if (!error || error.message !== '通知模板尚未初始化') {
+        throw error
+      }
+    }
     Object.assign(config, {
       backendProvider: target, cloudRun: run, backendEntryError: '',
       cloudReady: Promise.resolve(), backendGeneration: (previous.backendGeneration || 0) + 1,

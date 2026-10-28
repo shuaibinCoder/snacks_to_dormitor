@@ -274,6 +274,24 @@ test('目标未授权、身份不一致及初始化或模板失败均保持原�
   assert.equal(backend.provider(), 'cloudrun')
 })
 
+test('目标通知模板未初始化时以停用状态切换，其他通知错误仍阻断', async () => {
+  mockSwitchRemotes()
+  const container = wx.cloud.callContainer
+  wx.cloud.callContainer = async opts => opts.data.action === 'getNotificationConfig'
+    ? { statusCode: 400, data: { success: false, message: '通知模板尚未初始化', code: 'BUSINESS_ERROR' } }
+    : container(opts)
+  let activated
+  await api.switchBackend('cloudrun', 'snacks', async config => { activated = config })
+  assert.equal(backend.provider(), 'cloudrun')
+  assert.deepEqual(activated, { enabled: false, templateId: '' })
+  app.globalData.backendProvider = 'cloudfunction'
+  wx.cloud.callContainer = async opts => opts.data.action === 'getNotificationConfig'
+    ? { statusCode: 500, data: { success: false, message: '数据库连接失败', code: 'SYSTEM_ERROR' } }
+    : container(opts)
+  await assert.rejects(api.switchBackend('cloudrun', 'snacks', async () => assert.fail()), /数据库连接失败/)
+  assert.equal(backend.provider(), 'cloudfunction')
+})
+
 test('服务名拒绝网址、域名和空值；缺配置时不会发送请求', async () => {
   for (const service of ['', 'https://example.com', 'example.com', 'snacks:80', 'a/b']) {
     await assert.rejects(api.switchBackend('cloudrun', service, async () => assert.fail()), /服务名/)
