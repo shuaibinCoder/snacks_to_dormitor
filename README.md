@@ -52,7 +52,7 @@
 
 ### Java 云托管（独立测试后端）
 
-Java 项目位于 `/Users/shuaibin/IdeaProjects/snacks_to_dormitor_end`，使用 Java 11 / Spring Boot / MyBatis / MySQL，独立实现原云函数的 45 个 action。原 `cloudfunctions/` 保留且不改动。Java 自动建表、迁移和启动数据初始化已默认关闭，部署前需人工准备表结构、首位管理员、可信网关和微信接口权限。本项目 `miniprogram/app.js` 保持默认云开发：
+Java 项目位于 `/Users/shuaibin/IdeaProjects/snacks_to_dormitor_end`，使用 Java 11 / Spring Boot / MyBatis / MySQL，独立实现原云函数的 45 个 action。原 `cloudfunctions/` 保留且不改动。Java 自动建表、迁移和启动数据初始化已默认关闭，部署前需人工准备表结构、首位管理员、云托管访问配置和微信接口权限。本项目 `miniprogram/app.js` 保持默认云开发：
 
 ```js
 useCloud: true,
@@ -82,12 +82,12 @@ cloudRun: {
   }).then(res => console.log('健康检查', res.statusCode, res.data))
     .catch(err => console.error('原始错误', err))
   ```
-  返回 HTTP 200 且 `status=UP` 后再检查超级管理员切换。域名直连返回 503 不等同于 SDK 失败，必须分别排查域名路由和微信网关；控制台显示“服务正常”只说明实例状态，不等于 Java 接口已验证。
+  返回 HTTP 200 且 `status=UP` 后再检查超级管理员切换。域名直连返回 503 不等同于 SDK 失败，必须分别排查域名路由和云托管调用链路；控制台显示“服务正常”只说明实例状态，不等于 Java 接口已验证。
 - 待结算、下单请求和通知缓存按后端、环境及服务隔离；联系人本机资料共用。云托管未取得当前服务通知配置前按关闭处理，不沿用云函数模板或 grant。
 - Java 下单使用稳定 `requestId`，结果未知时按原内容重试并沿用原授权；修改内容需重新进入结算，先核实是否已下单。已有商品保存携带 `version`，过期提示刷新。原云函数忽略这两个字段，不因此获得 Java 的幂等和版本保护。
 - 新分享链接带 `backend/backendScope`，Java 通知带云托管来源。旧外部链接默认属于云函数，来源不匹配只提示并阻断，不自动切换或查询另一套库。
 - **两套订单、库存、角色、消息和授权记录不同步。** 改回 `cloudfunction` 只是重新访问原云数据库，不会把 MySQL 测试数据带回；本次不做存量迁移、双写或生产回滚。
-- 云托管业务容器必须关闭公网入口，仅信任微信网关访问；否则自填身份头可绕过鉴权。真实通知还需开放接口服务及订阅发送权限，并在修改权限后创建新服务版本。
+- 云托管业务容器必须关闭公网入口，仅接受微信云托管调用链路访问；否则自填身份头可绕过鉴权。这里的平台调用链路与开发管理中的独立“微信网关”产品无关，无需开通后者。真实通知还需开放接口服务及订阅发送权限，并在修改权限后创建新服务版本。
 
 ### 验证
 

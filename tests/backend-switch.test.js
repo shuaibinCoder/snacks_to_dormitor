@@ -200,6 +200,7 @@ function loadAdminPage() {
   let page
   vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/admin/index'), 'utf8'), {
     Page: value => { page = value }, wx, getApp,
+    console: { error: (...args) => calls.push(['error', ...args]) },
     require: name => require(`../miniprogram/utils/${name.split('/').at(-1)}`)
   })
   page.setData = value => Object.assign(page.data, value)
@@ -399,6 +400,78 @@ test('管理页面确认切换时携带服务名，重复点击与导航不会�
   release()
   await switching
   assert.equal(page.data.switching, false)
+})
+
+test('按钮双向切换的确认文案符合微信限制，确认后才执行后端切换', async () => {
+  mockSwitchRemotes()
+  const page = loadAdminPage()
+  await page.loadData()
+  const switched = []
+  app.switchBackend = async target => {
+    switched.push(target)
+    app.globalData.backendProvider = target
+  }
+  const modals = []
+  wx.showModal = opts => {
+    modals.push(opts)
+    // 复现真实微信 SDK 的参数限制，不能不校验参数就返回确认成功。
+    if ([...(opts.confirmText || '确定')].length > 4) {
+      opts.fail({ errMsg: 'showModal:fail confirmText length should not larger than 4 Chinese characters' })
+      return
+    }
+    if (opts.success) opts.success({ confirm: true })
+  }
+  for (const target of ['cloudrun', 'cloudfunction']) {
+    await page.changeBackend({ currentTarget: { dataset: { provider: target } } })
+    assert.equal(backend.provider(), target)
+    assert.equal(page.data.switching, false)
+  }
+  assert.deepEqual(switched, ['cloudrun', 'cloudfunction'])
+  assert.equal(modals.length, 2)
+  assert.ok(modals.every(opts => [...opts.confirmText].length <= 4))
+})
+
+test('确认框 SDK 错误保留 errMsg，不调用后端且解除忙碌状态', async () => {
+  mockSwitchRemotes()
+  const page = loadAdminPage()
+  await page.loadData()
+  let switches = 0
+  app.switchBackend = async () => { switches++ }
+  const modals = []
+  const detail = 'showModal:fail confirmText length should not larger than 4 Chinese characters'
+  wx.showModal = opts => {
+    modals.push(opts)
+    if (opts.fail) opts.fail({ errMsg: detail })
+  }
+  await page.changeBackend({ currentTarget: { dataset: { provider: 'cloudrun' } } })
+  assert.equal(switches, 0)
+  assert.equal(page.data.switching, false)
+  assert.equal(backend.provider(), 'cloudfunction')
+  assert.equal(modals.length, 2)
+  assert.ok(modals[1].content.includes(detail))
+  assert.ok(calls.some(call => call[0] === 'error'))
+})
+
+test('切换失败兼容业务 Error、SDK 对象、字符串和空值', async () => {
+  for (const [error, expected] of [
+    [new Error('目标无权限'), '目标无权限'],
+    [{ errMsg: 'reLaunch:fail 页面无法重载', errCode: 42 }, 'reLaunch:fail 页面无法重载'],
+    ['连接中断', '连接中断'], [null, '切换失败，当前后端保持不变']
+  ]) {
+    mockSwitchRemotes()
+    const page = loadAdminPage()
+    await page.loadData()
+    app.switchBackend = async () => { throw error }
+    let failure
+    wx.showModal = opts => {
+      if (opts.title === '未切换后端') failure = opts
+      else opts.success({ confirm: true })
+    }
+    await page.changeBackend({ currentTarget: { dataset: { provider: 'cloudrun' } } })
+    assert.ok(failure.content.includes(expected))
+    assert.equal(page.data.switching, false)
+    assert.equal(backend.provider(), 'cloudfunction')
+  }
 })
 
 test('实际 App 切换清除角标、重建页面栈；冷启动不沿用测试选择', async () => {

@@ -52,21 +52,30 @@ Page({
       return
     }
     this.setData({ switching: true })
+    let stage = '显示切换确认框'
     try {
       const targetLabel = target === 'cloudrun' ? '云托管 Java' : '原云开发'
       const modal = await new Promise((resolve, reject) => {
         wx.showModal({
           title: `切换到${targetLabel}？`,
           content: '仅影响当前设备的本次运行。两套订单、库存、角色与通知独立，不同步数据；已有页面将关闭，未保存的编辑会丢失。目标后端也须为当前账号配置超级管理员权限。完全退出并重新启动后恢复默认后端。',
-          confirmText: '检查并切换', success: resolve, fail: reject
+          // 微信确认按钮最多允许 4 个汉字，超长会在请求后端之前失败。
+          confirmText: '确认切换', success: resolve, fail: reject
         })
       })
       if (!modal.confirm) {
         return
       }
+      stage = '校验后端并重载页面'
       await getApp().switchBackend(target, this.data.cloudRunService)
     } catch (error) {
-      wx.showModal({ title: '未切换后端', content: error.message || '切换失败，当前后端保持不变', showCancel: false })
+      // 微信 SDK 使用 errMsg，不能只读取 JavaScript Error 的 message。
+      const detail = String(error && (error.message || error.errMsg) ||
+        (typeof error === 'string' ? error : '') || '切换失败，当前后端保持不变')
+      const code = error && (error.errCode === undefined ? error.code : error.errCode)
+      const suffix = code === undefined || code === null ? '' : `（${code}）`
+      console.error('后端切换失败', { stage, target, message: detail, code })
+      wx.showModal({ title: '未切换后端', content: `${stage}失败：${detail}${suffix}`, showCancel: false })
     } finally {
       this.setData({ switching: false })
     }
