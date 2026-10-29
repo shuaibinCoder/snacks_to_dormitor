@@ -38,6 +38,7 @@ function updateNotificationConfigCache(config, key = backend.cacheKey(CONFIG_CAC
 }
 
 async function primeNotificationConfig(force = false) {
+  try { await backend.ready() } catch (error) { return { enabled: false, templateId: '' } }
   const key = backend.cacheKey(CONFIG_CACHE_KEY)
   if (!force && configCache.has(key)) return configCache.get(key)
   try {
@@ -67,6 +68,10 @@ function classifySubscribeError(error) {
  * 否则微信会认为已经脱离用户点击手势并拒绝弹出授权框。
  */
 function requestSharedSubscription(scene, subscriptionRole = 'GENERAL') {
+  const settings = backend.settings()
+  if (settings.useCloud && settings.startupState && settings.startupState !== 'ready') {
+    return Promise.resolve({ configured: false, permission: 'UNKNOWN', reason: 'CONFIG_NOT_READY', errorMessage: '后端尚未就绪，请先完成启动。' })
+  }
   const source = backend.namespace()
   const config = readCachedConfig()
   if (!config) {

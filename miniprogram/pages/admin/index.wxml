@@ -1,8 +1,8 @@
 <view wx:if="{{dashboard}}" class="admin-page">
   <view class="admin-hero">
     <view class="admin-eyebrow">PLATFORM CONSOLE</view><view class="admin-title">平台管理后台</view><view class="role-pill">{{roleName}}</view>
-    <view class="backend-current">当前后端：{{backendLabel}}</view>
-    <view class="admin-stats">
+    <view class="backend-current">本次运行后端：{{backendLabel}}</view>
+    <view wx:if="{{dashboard}}" class="admin-stats">
       <view><text>{{dashboard.pendingApplications}}</text><label>处理中申请</label></view>
       <view><text>{{dashboard.paymentPending}}</text><label>待付款</label></view>
       <view><text>{{dashboard.approvalPending}}</text><label>待审批</label></view>
@@ -11,19 +11,21 @@
   </view>
   <view class="page admin-body">
     <view wx:if="{{canSwitchBackend}}" class="card backend-card">
-      <view class="backend-heading"><view class="section-title">后端测试切换</view><text class="backend-scope">仅本机 · 本次运行</text></view>
-      <view class="backend-description">切换前验证两边的超级管理员权限，不迁移数据，不影响其他用户。</view>
+      <view class="backend-heading"><view class="section-title">本机后端测试</view><text class="backend-scope">仅本机 · 本次运行</text></view>
+      <view class="backend-description">默认使用 Java 云托管。切换仅影响当前设备，不影响其他用户，不迁移业务数据。</view>
       <view class="backend-field-label">云托管环境 ID</view>
       <view class="backend-env">{{cloudRunEnv || '未配置'}}</view>
       <view class="backend-field-label">云托管服务名</view>
-      <input class="backend-service" value="{{cloudRunService}}" bindinput="onServiceInput" disabled="{{switching || backendProvider === 'cloudrun'}}" maxlength="128" placeholder="填写服务名称，不是域名" />
-      <view class="backend-help">在云托管控制台「服务列表」复制服务名称。</view>
+      <view class="backend-env">{{cloudRunService}}</view>
+      <view class="backend-help">当前账号须在两套后端都有超级管理员权限，切换前自动检查。</view>
       <view class="backend-options">
-        <button class="backend-option {{backendProvider === 'cloudfunction' ? 'backend-selected' : ''}}" disabled="{{switching || backendProvider === 'cloudfunction'}}" data-provider="cloudfunction" bindtap="changeBackend">云开发 · 原云函数</button>
-        <button class="backend-option {{backendProvider === 'cloudrun' ? 'backend-selected' : ''}}" disabled="{{switching || backendProvider === 'cloudrun'}}" data-provider="cloudrun" bindtap="changeBackend">云托管 · Java</button>
+        <button class="backend-option {{backendProvider === 'cloudfunction' ? 'backend-selected' : ''}}" disabled="{{loading || switching || backendProvider === 'cloudfunction'}}" data-provider="cloudfunction" bindtap="changeBackend">云开发 · 原云函数</button>
+        <button class="backend-option {{backendProvider === 'cloudrun' ? 'backend-selected' : ''}}" disabled="{{loading || switching || backendProvider === 'cloudrun'}}" data-provider="cloudrun" bindtap="changeBackend">云托管 · Java</button>
       </view>
-      <view class="backend-warning">{{switching ? '正在检查连接、权限并重新加载页面，请勿重复操作…' : '切换将关闭已有页面，未保存的编辑会丢失。冷启动恢复默认云开发；新库没有管理员权限时不会切换。'}}</view>
+      <view class="backend-warning">{{switching ? '正在检查并切换本机后端，请勿重复操作…' : '成功后重建页面并立即使用所选后端；切后台返回不变，冷启动恢复 Java。两套业务数据不互通。'}}</view>
     </view>
+    <view wx:if="{{dashboardError}}" class="card backend-card backend-warning">本次运行的业务后台不可用：{{dashboardError}}</view>
+    <block wx:if="{{dashboard}}">
     <view class="section-title">管理功能</view>
     <view class="admin-tools">
       <view class="admin-tool card" data-url="/pages/messages/index" bindtap="go"><view class="tool-icon red-bg">🔔</view><view class="tool-main"><view>消息通知</view><text>查看新申请、待审核和平台消息</text></view><text class="arrow">›</text></view>
@@ -41,6 +43,7 @@
       </block>
       <view wx:if="{{!dashboard.recentLogs.length}}" class="no-log">还没有平台操作记录</view>
     </view>
+    </block>
   </view>
 </view>
-<view wx:if="{{!dashboard}}" class="empty"><text class="empty-icon">🔐</text>{{loading ? '正在验证管理权限…' : '没有管理权限'}}</view>
+<view wx:if="{{!dashboard}}" class="empty"><text class="empty-icon">🔐</text>{{loading ? '正在验证管理权限…' : (dashboardError || '没有管理权限')}}</view>

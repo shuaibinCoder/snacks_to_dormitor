@@ -1,12 +1,17 @@
-// 默认后端来自代码配置；超级管理员可在本次运行中切换，不自动回退或跟随外部链接切换。
+// 默认 Java 云托管；超级管理员仅切换本机本次运行，不持久化或跟随外部链接换库。
 function settings() {
   try { return getApp().globalData || {} } catch (error) { return {} }
 }
 function provider(config = settings()) {
   if (!config.useCloud) return 'local'
-  const value = config.backendProvider || 'cloudfunction'
+  const value = config.backendProvider || 'cloudrun'
   if (!['cloudfunction', 'cloudrun'].includes(value)) throw new Error('后端配置不正确')
   return value
+}
+/** 页面读取结算、通知等后端命名空间前，必须先等待冷启动完成。 */
+async function ready(config = settings()) {
+  if (config.useCloud && config.cloudReady) await config.cloudReady
+  provider(config)
 }
 function label(config = settings()) {
   return { cloudfunction: '云开发 · 原云函数', cloudrun: '云托管 · Java', local: '本机演示数据' }[provider(config)]
@@ -26,9 +31,9 @@ function sourceMatches(query = {}, external = false, config = settings()) {
 }
 function checkEntry(options = {}, config = settings()) {
   const query = options.query || {}
-  const path = (options.path || '').replace(/^\//, '')
   // App 的入口参数来自外部启动/唤醒；普通页内跳转不调用此入口。
-  const external = !!query.id || !!query.storeId || !!query.backend || !!query.backendScope || (!!path && path !== 'pages/home/index') || [1007, 1008, 1011, 1012, 1013, 1014, 1043, 1044, 1047, 1048, 1049, 1073, 1074].includes(Number(options.scene))
+  // 无记录 ID、无来源标记的普通页面可以恢复，不能仅凭页面或场景码推断为旧库链接。
+  const external = ['id', 'storeId', 'orderId', 'productId', 'applicationId', 'backend', 'backendScope'].some(key => !!query[key])
   const matches = sourceMatches(query, external, config)
   if (!matches) {
     const alreadyShown = !!config.backendEntryError
@@ -54,4 +59,9 @@ function saveCheckoutAttempt(order) {
   wx.setStorageSync(cacheKey('snacks_pending_checkout'), { ...pending, attempt: order })
 }
 function clearPendingCheckout() { wx.removeStorageSync(cacheKey('snacks_pending_checkout')) }
-module.exports = { settings, provider, label, namespace, cacheKey, withBackend, sourceMatches, checkEntry, savePendingCheckout, getPendingCheckout, saveCheckoutAttempt, clearPendingCheckout }
+function errorDetail(error) {
+  const detail = String(error && (error.message || error.errMsg) || (typeof error === 'string' ? error : '') || '未知错误')
+  const code = error && (error.errCode === undefined ? error.code : error.errCode)
+  return `${detail}${code === undefined || code === null ? '' : `（${code}）`}`
+}
+module.exports = { settings, ready, provider, label, namespace, cacheKey, withBackend, sourceMatches, checkEntry, savePendingCheckout, getPendingCheckout, saveCheckoutAttempt, clearPendingCheckout, errorDetail }

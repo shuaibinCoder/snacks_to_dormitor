@@ -11,7 +11,12 @@ Page({
     buyerPushLabel: '商品送达时通知', notificationConfigured: false
   },
 
-  onLoad() {
+  async onLoad() {
+    try { await backend.ready() } catch (error) {
+      this.setData({ notificationLoading: false })
+      wx.showToast({ title: error.message || '后端尚未就绪', icon: 'none' })
+      return
+    }
     primeNotificationConfig(true).then(config => {
       this.setData({
         buyerPushLabel: config && config.buyerOrderPushStageLabel || '商品送达时通知',

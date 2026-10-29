@@ -1,21 +1,37 @@
 const api = require('../../utils/api')
+const backend = require('../../utils/backend')
 const { PLATFORM_ROLE_NAMES, decorateApplication } = require('../../utils/roles')
 const { refreshUnreadBadge } = require('../../utils/notifications')
 
 Page({
-  data: { profile: {}, identity: null, myStore: null, application: null, platformRoleName: '', unreadCount: 0 },
+  data: { profile: {}, identity: null, myStore: null, application: null, platformRoleName: '', unreadCount: 0, backendLabel: '' },
   onShow() { this.loadData() },
   async loadData() {
+    if (this._loading) return
+    this._loading = true
     try {
-      const [identity, unread] = await Promise.all([api.request('getMyIdentity'), api.request('getUnreadNotificationCount')])
-      this.setData({
-        profile: api.getProfile() || {}, identity, myStore: identity.store || null,
-        application: decorateApplication(identity.merchantApplication),
-        platformRoleName: PLATFORM_ROLE_NAMES[identity.platformRole] || '',
-        unreadCount: Number(unread.total || 0)
-      })
+      try { await backend.ready(); this.setData({ backendLabel: backend.label() }) } catch (error) {
+        this.setData({ backendLabel: '启动尚未完成' })
+      }
+      const [identityResult, unreadResult] = await Promise.allSettled([
+        api.request('getMyIdentity'), api.request('getUnreadNotificationCount')
+      ])
+      if (identityResult.status === 'fulfilled') {
+        const identity = identityResult.value
+        this.setData({
+          profile: api.getProfile() || {}, identity, myStore: identity.store || null,
+          application: decorateApplication(identity.merchantApplication),
+          platformRoleName: PLATFORM_ROLE_NAMES[identity.platformRole] || ''
+        })
+      } else {
+        this.setData({ identity: null, myStore: null, application: null, platformRoleName: '' })
+        wx.showToast({ title: backend.errorDetail(identityResult.reason), icon: 'none' })
+      }
+      this.setData({ unreadCount: unreadResult.status === 'fulfilled' ? Number(unreadResult.value.total || 0) : 0 })
       refreshUnreadBadge()
-    } catch (error) { wx.showToast({ title: error.message || '身份加载失败', icon: 'none' }) }
+    } finally {
+      this._loading = false
+    }
   },
   goMessages() { wx.navigateTo({ url: '/pages/messages/index' }) },
   goOrders() { wx.switchTab({ url: '/pages/orders/index' }) },

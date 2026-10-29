@@ -23,7 +23,7 @@ beforeEach(() => {
   app.globalData.backendProvider = 'cloudrun'; notifications.updateNotificationConfigCache(null)
   app.globalData.backendProvider = 'cloudfunction'
 })
-test('默认云函数；云托管指定独立环境和服务，身份不取自客户端', async () => {
+test('已就绪会话按选中的通道请求，云托管身份不取自客户端', async () => {
   assert.equal(await api.request('initCollections'), true)
   assert.equal(calls[0][0], 'function')
   assert.equal(calls[0][1].config.env, 'old-env')
@@ -38,7 +38,7 @@ test('初始化等待且初始化不自等待；失败阻断业务', async () =>
   app.globalData.cloudReady = new Promise(resolve => { ready = resolve })
   const request = api.request('listStores')
   assert.equal(calls.length, 0)
-  await api.request('initCollections'); assert.equal(calls.length, 1)
+  await api.initializeBackend(app.globalData); assert.equal(calls.length, 1)
   ready(); await request; assert.equal(calls.length, 2)
   app.globalData.cloudReady = Promise.reject(new Error('初始化失败'))
   await assert.rejects(api.request('createOrder'), /初始化失败/)
@@ -138,7 +138,7 @@ test('结算超时重试恢复原请求和授权，内容变化阻断且成功�
       }
     })
     page.setData = value => Object.assign(page.data, value)
-    page.onLoad()
+    await page.onLoad()
     await Promise.resolve()
     return page
   }
@@ -160,340 +160,267 @@ test('结算超时重试恢复原请求和授权，内容变化阻断且成功�
   assert.equal(backend.getPendingCheckout(), null)
   assert.match(redirects[0], /id=cr_created.*backend=cloudrun/)
 })
-test('实际 App 启动使用统一适配器，能选择云托管', async () => {
-  const source = fs.readFileSync(require.resolve('../miniprogram/app'), 'utf8')
-  vm.runInNewContext(source, { App: value => { app = value }, wx, console, require: name => name === './utils/api' ? api : name === './utils/backend' ? backend : { primeNotificationConfig: async () => {} } })
-  app.onLaunch({ path: 'pages/home/index' })
-  app.globalData.backendProvider = 'cloudrun'; app.globalData.cloudRun = { env: 'test', service: 'snacks', path: '/api/snacks' }
-  await app.globalData.cloudReady
-  assert.equal(calls.length, 1); assert.equal(calls[0][0], 'container')
-  assert.equal(calls[0][1].data.action, 'initCollections')
-})
-
-function mockSwitchRemotes(options = {}) {
-  const respond = type => async opts => {
-    calls.push([type, opts])
-    const action = opts.data.action
-    if (type === 'container' && options.failAction === action) {
-      throw new Error('目标服务未就绪')
-    }
-    let data = true
-    if (action === 'getMyIdentity') {
-      data = {
-        openid: type === 'container' ? options.targetOpenid || 'super-user' : 'super-user',
-        platformRole: (type === 'container' ? options.targetRole : options.sourceRole) || 'SUPER_ADMIN'
-      }
-    } else if (action === 'getAdminDashboard') {
-      data = { role: options.sourceRole || 'SUPER_ADMIN', recentLogs: [] }
-    } else if (action === 'getNotificationConfig') {
-      data = { enabled: true, templateId: `${type}-template` }
-    }
-    return type === 'container'
-      ? { statusCode: 200, data: { success: true, data } }
-      : { result: { success: true, data } }
-  }
-  wx.cloud.callFunction = respond('function')
-  wx.cloud.callContainer = respond('container')
-}
-
-function loadAdminPage() {
-  let page
-  vm.runInNewContext(fs.readFileSync(require.resolve('../miniprogram/pages/admin/index'), 'utf8'), {
-    Page: value => { page = value }, wx, getApp,
-    console: { error: (...args) => calls.push(['error', ...args]) },
-    require: name => require(`../miniprogram/utils/${name.split('/').at(-1)}`)
-  })
-  page.setData = value => Object.assign(page.data, value)
-  return page
-}
-
-test('超级管理员双向切换验证连接、身份和模板，保留数据隔离', async () => {
-  mockSwitchRemotes()
-  const originalEnv = app.globalData.env
-  const pending = backend.savePendingCheckout({ store: { _id: 'old-store' } })
-  notifications.updateNotificationConfigCache({ enabled: true, templateId: 'old-template' })
-  let activations = 0
-  assert.equal(await api.switchBackend('cloudrun', ' snacks-java ', async config => {
-    activations++
-    assert.equal(backend.provider(), 'cloudrun')
-    assert.equal(config.templateId, 'container-template')
-    assert.equal(backend.getPendingCheckout(), null)
-    assert.equal((await notifications.requestSharedSubscription('ORDER_SUBMIT')).configured, false)
-    notifications.updateNotificationConfigCache(config)
-  }), true)
-  assert.equal(activations, 1)
-  assert.equal(app.globalData.env, originalEnv)
-  assert.equal(app.globalData.cloudRun.service, 'snacks-java')
-  assert.equal(app.globalData.backendSwitchState, '')
-  assert.deepEqual(calls.map(([type, opts]) => [type, opts.data.action]), [
-    ['function', 'getMyIdentity'], ['container', 'initCollections'],
-    ['container', 'getMyIdentity'], ['container', 'getNotificationConfig']
-  ])
-  assert.equal(calls[1][1].header['X-WX-SERVICE'], 'snacks-java')
-  assert.equal(calls[1][1].header['X-WX-OPENID'], undefined)
-  calls.length = 0
-  await api.switchBackend('cloudfunction', '', async config => {
-    assert.equal(config.templateId, 'function-template')
-  })
-  assert.equal(backend.provider(), 'cloudfunction')
-  assert.equal(backend.getPendingCheckout().requestId, pending.requestId)
-  assert.equal(calls[0][0], 'container')
-  assert.equal(calls[1][0], 'function')
-  assert.equal(await api.switchBackend('cloudfunction', '', async () => {}), false)
-})
-
-test('普通管理员、运营和本机演示账号不能切换，页面权限不作为授权依据', async () => {
-  for (const role of ['PLATFORM_ADMIN', 'PLATFORM_OPERATOR', 'CUSTOMER']) {
-    mockSwitchRemotes({ sourceRole: role })
-    calls.length = 0
-    await assert.rejects(api.switchBackend('cloudrun', 'snacks', async () => assert.fail()), /只有当前后端的超级管理员/)
-    assert.equal(backend.provider(), 'cloudfunction')
-    assert.equal(calls.length, 1)
-    assert.equal(calls[0][0], 'function')
-    assert.equal(app.globalData.backendSwitchState, '')
-  }
-  app.globalData.useCloud = false
-  await assert.rejects(api.switchBackend('cloudrun', 'snacks', async () => assert.fail()), /只支持/)
-})
-
-test('目标未授权、身份不一致及初始化或模板失败均保持原后端', async () => {
-  for (const options of [
-    { targetRole: 'PLATFORM_ADMIN' }, { targetOpenid: 'another-user' },
-    { failAction: 'initCollections' }, { failAction: 'getMyIdentity' }, { failAction: 'getNotificationConfig' }
-  ]) {
-    mockSwitchRemotes(options)
-    calls.length = 0
-    const ready = app.globalData.cloudReady
-    await assert.rejects(api.switchBackend('cloudrun', 'snacks', async () => assert.fail()), /未切换|未自动重试/)
-    assert.equal(backend.provider(), 'cloudfunction')
-    assert.equal(app.globalData.cloudReady, ready)
-    assert.equal(app.globalData.backendSwitchState, '')
-    assert.equal(calls.filter(([type]) => type === 'function').length, 1)
-  }
-  mockSwitchRemotes()
-  await api.switchBackend('cloudrun', 'snacks', async () => {})
-  assert.equal(backend.provider(), 'cloudrun')
-})
-
-test('目标通知模板未初始化时以停用状态切换，其他通知错误仍阻断', async () => {
-  mockSwitchRemotes()
-  const container = wx.cloud.callContainer
-  wx.cloud.callContainer = async opts => opts.data.action === 'getNotificationConfig'
-    ? { statusCode: 400, data: { success: false, message: '通知模板尚未初始化', code: 'BUSINESS_ERROR' } }
-    : container(opts)
-  let activated
-  await api.switchBackend('cloudrun', 'snacks', async config => { activated = config })
-  assert.equal(backend.provider(), 'cloudrun')
-  assert.deepEqual(activated, { enabled: false, templateId: '' })
-  app.globalData.backendProvider = 'cloudfunction'
-  wx.cloud.callContainer = async opts => opts.data.action === 'getNotificationConfig'
-    ? { statusCode: 500, data: { success: false, message: '数据库连接失败', code: 'SYSTEM_ERROR' } }
-    : container(opts)
-  await assert.rejects(api.switchBackend('cloudrun', 'snacks', async () => assert.fail()), /数据库连接失败/)
-  assert.equal(backend.provider(), 'cloudfunction')
-})
-
-test('服务名拒绝网址、域名和空值；缺配置时不会发送请求', async () => {
-  for (const service of ['', 'https://example.com', 'example.com', 'snacks:80', 'a/b']) {
-    await assert.rejects(api.switchBackend('cloudrun', service, async () => assert.fail()), /服务名/)
-  }
-  app.globalData.cloudRun.env = ''
-  await assert.rejects(api.switchBackend('cloudrun', 'snacks', async () => assert.fail()), /环境 ID/)
-  assert.equal(calls.length, 0)
-})
-
-test('请求未完成时拒绝切换；检查期间禁止业务请求和重复切换', async () => {
-  let releaseRequest
-  wx.cloud.callFunction = () => new Promise(resolve => { releaseRequest = resolve })
-  const pending = api.request('listStores')
-  await assert.rejects(api.switchBackend('cloudrun', 'snacks', async () => assert.fail()), /还有请求/)
-  releaseRequest({ result: { success: true, data: [] } })
-  await pending
-  mockSwitchRemotes()
-  const respond = wx.cloud.callFunction
-  let releaseIdentity
-  wx.cloud.callFunction = async opts => {
-    await new Promise(resolve => { releaseIdentity = resolve })
-    return respond(opts)
-  }
-  const switching = api.switchBackend('cloudrun', 'snacks', async () => {})
-  await assert.rejects(api.request('createOrder'), /正在检查后端切换/)
-  await assert.rejects(api.switchBackend('cloudrun', 'snacks', async () => assert.fail()), /还有请求/)
-  releaseIdentity()
-  await switching
-  assert.equal(app.globalData.pendingBackendRequests, 0)
-})
-
-test('请求等待初始化期间及响应返回前后端发生变化均阻断旧请求', async () => {
-  let ready
-  app.globalData.cloudReady = new Promise(resolve => { ready = resolve })
-  const waiting = api.request('createOrder')
+test('响应返回前会话被意外改变时拒绝旧响应且不重发', async () => {
+  let release
+  wx.cloud.callFunction = () => new Promise(resolve => { release = resolve })
+  const pending = api.request('getMyIdentity')
   app.globalData.backendProvider = 'cloudrun'
-  ready()
-  await assert.rejects(waiting, /后端已切换/)
-  assert.equal(calls.length, 0)
-  app.globalData.cloudReady = Promise.resolve()
-  let response
-  wx.cloud.callContainer = () => new Promise(resolve => { response = resolve })
-  const inFlight = api.request('getMyIdentity')
-  await Promise.resolve()
-  app.globalData.backendProvider = 'cloudfunction'
-  response({ statusCode: 200, data: { success: true, data: { platformRole: 'SUPER_ADMIN' } } })
-  await assert.rejects(inFlight, /后端已切换/)
+  release({ result: { success: true, data: {} } })
+  await assert.rejects(pending, /后端已切换/)
   assert.equal(app.globalData.pendingBackendRequests, 0)
 })
 
-test('页面重载失败恢复原后端，之后可以重新尝试', async () => {
-  mockSwitchRemotes()
-  const previous = app.globalData.cloudRun
-  await assert.rejects(api.switchBackend('cloudrun', 'changed-service', async () => {
-    throw new Error('页面重载失败')
-  }), /页面重载失败/)
-  assert.equal(backend.provider(), 'cloudfunction')
-  assert.equal(app.globalData.cloudRun, previous)
-  assert.equal(app.globalData.backendSwitchState, '')
-  await api.switchBackend('cloudrun', 'snacks', async () => {})
-  assert.equal(backend.provider(), 'cloudrun')
-})
+const path = require('node:path')
+const root = path.resolve(__dirname, '../miniprogram')
+const tick = () => new Promise(resolve => setImmediate(resolve))
+const event = provider => ({ currentTarget: { dataset: { provider } } })
 
-test('管理页面仅远端超级管理员显示切换选项，取消确认不触发切换', async () => {
-  let switches = 0
-  app.switchBackend = async () => { switches++ }
-  for (const role of ['SUPER_ADMIN', 'PLATFORM_ADMIN', 'PLATFORM_OPERATOR']) {
-    mockSwitchRemotes({ sourceRole: role })
-    const page = loadAdminPage()
-    await page.loadData()
-    assert.equal(page.data.canSwitchBackend, role === 'SUPER_ADMIN')
-    assert.equal(page.data.backendLabel, '云开发 · 原云函数')
-    wx.showModal = opts => opts.success({ confirm: false })
-    await page.changeBackend({ currentTarget: { dataset: { provider: 'cloudrun' } } })
-    assert.equal(page.data.switching, false)
-  }
-  assert.equal(switches, 0)
-  app.globalData.useCloud = false
-  const page = loadAdminPage()
-  await page.loadData()
-  assert.equal(page.data.canSwitchBackend, false)
-})
-
-test('管理页面确认切换时携带服务名，重复点击与导航不会并发执行', async () => {
-  mockSwitchRemotes()
-  const page = loadAdminPage()
-  await page.loadData()
-  page.onServiceInput({ detail: { value: 'java-service' } })
-  wx.showModal = opts => opts.success({ confirm: true })
-  let release, switches = 0
-  app.switchBackend = async (target, service) => {
-    switches++
-    assert.equal(target, 'cloudrun')
-    assert.equal(service, 'java-service')
-    await new Promise(resolve => { release = resolve })
-  }
-  const event = { currentTarget: { dataset: { provider: 'cloudrun' } } }
-  const switching = page.changeBackend(event)
-  await Promise.resolve()
-  assert.equal(page.data.switching, true)
-  await page.changeBackend(event)
-  wx.navigateTo = () => assert.fail('切换中不应跳转业务页面')
-  page.go({ currentTarget: { dataset: { url: '/pages/admin-stores/index' } } })
-  assert.equal(switches, 1)
-  release()
-  await switching
-  assert.equal(page.data.switching, false)
-})
-
-test('按钮双向切换的确认文案符合微信限制，确认后才执行后端切换', async () => {
-  mockSwitchRemotes()
-  const page = loadAdminPage()
-  await page.loadData()
-  const switched = []
-  app.switchBackend = async target => {
-    switched.push(target)
-    app.globalData.backendProvider = target
-  }
-  const modals = []
-  wx.showModal = opts => {
-    modals.push(opts)
-    // 复现真实微信 SDK 的参数限制，不能不校验参数就返回确认成功。
-    if ([...(opts.confirmText || '确定')].length > 4) {
-      opts.fail({ errMsg: 'showModal:fail confirmText length should not larger than 4 Chinese characters' })
-      return
+// 独立加载真实 App/Page；每台设备的模块、存储、身份和通知缓存互不共享。
+function client({ role = 'SUPER_ADMIN', storage = new Map() } = {}) {
+  let instance, page
+  const modules = new Map()
+  const c = { calls: [], modals: [], actions: [], errors: [], storage, hook: null, role }
+  const request = async (kind, opts) => {
+    c.calls.push({ kind, opts })
+    if (kind === 'container') {
+      assert.equal(opts.path, '/api/snacks')
+      assert.equal(opts.method, 'POST')
+      assert.equal(opts.config.env, 'prod-d0gs4er2552d66779')
+      assert.equal(opts.header['X-WX-SERVICE'], 'springboot-7j2n')
+      assert.equal(opts.header['X-WX-OPENID'], undefined)
     }
-    if (opts.success) opts.success({ confirm: true })
-  }
-  for (const target of ['cloudrun', 'cloudfunction']) {
-    await page.changeBackend({ currentTarget: { dataset: { provider: target } } })
-    assert.equal(backend.provider(), target)
-    assert.equal(page.data.switching, false)
-  }
-  assert.deepEqual(switched, ['cloudrun', 'cloudfunction'])
-  assert.equal(modals.length, 2)
-  assert.ok(modals.every(opts => [...opts.confirmText].length <= 4))
-})
-
-test('确认框 SDK 错误保留 errMsg，不调用后端且解除忙碌状态', async () => {
-  mockSwitchRemotes()
-  const page = loadAdminPage()
-  await page.loadData()
-  let switches = 0
-  app.switchBackend = async () => { switches++ }
-  const modals = []
-  const detail = 'showModal:fail confirmText length should not larger than 4 Chinese characters'
-  wx.showModal = opts => {
-    modals.push(opts)
-    if (opts.fail) opts.fail({ errMsg: detail })
-  }
-  await page.changeBackend({ currentTarget: { dataset: { provider: 'cloudrun' } } })
-  assert.equal(switches, 0)
-  assert.equal(page.data.switching, false)
-  assert.equal(backend.provider(), 'cloudfunction')
-  assert.equal(modals.length, 2)
-  assert.ok(modals[1].content.includes(detail))
-  assert.ok(calls.some(call => call[0] === 'error'))
-})
-
-test('切换失败兼容业务 Error、SDK 对象、字符串和空值', async () => {
-  for (const [error, expected] of [
-    [new Error('目标无权限'), '目标无权限'],
-    [{ errMsg: 'reLaunch:fail 页面无法重载', errCode: 42 }, 'reLaunch:fail 页面无法重载'],
-    ['连接中断', '连接中断'], [null, '切换失败，当前后端保持不变']
-  ]) {
-    mockSwitchRemotes()
-    const page = loadAdminPage()
-    await page.loadData()
-    app.switchBackend = async () => { throw error }
-    let failure
-    wx.showModal = opts => {
-      if (opts.title === '未切换后端') failure = opts
-      else opts.success({ confirm: true })
+    if (c.hook) {
+      const result = await c.hook(kind, opts)
+      if (result !== undefined) return result
     }
-    await page.changeBackend({ currentTarget: { dataset: { provider: 'cloudrun' } } })
-    assert.ok(failure.content.includes(expected))
-    assert.equal(page.data.switching, false)
-    assert.equal(backend.provider(), 'cloudfunction')
+    let data = []
+    switch (opts.data.action) {
+      case 'initCollections': data = true; break
+      case 'getMyIdentity': data = { openid: 'same-user', platformRole: c.role }; break
+      case 'getAdminDashboard': data = { role: c.role, recentLogs: [] }; break
+      case 'getNotificationConfig': data = { enabled: false, templateId: '' }; break
+      case 'getUnreadNotificationCount': data = { total: 0 }; break
+    }
+    return kind === 'container' ? { statusCode: 200, data: { success: true, data } } : { result: { success: true, data } }
+  }
+  c.wx = {
+    getStorageSync: key => storage.get(key), setStorageSync: (key, value) => storage.set(key, value), removeStorageSync: key => storage.delete(key),
+    cloud: { init: () => {}, callContainer: opts => request('container', opts), callFunction: opts => request('function', opts) },
+    showModal: opts => {
+      c.modals.push(opts)
+      assert.ok([...(opts.confirmText || '确定')].length <= 4)
+      if (opts.success) opts.success({ confirm: !!c.confirm })
+    },
+    showToast: opts => c.actions.push(['toast', opts.title]),
+    reLaunch: opts => { c.actions.push(['reLaunch', opts.url]); if (opts.success) opts.success() },
+    navigateTo: opts => c.actions.push(['navigateTo', opts.url]),
+    removeTabBarBadge: opts => { if (opts.complete) opts.complete() },
+    stopPullDownRefresh: () => {}
+  }
+  function load(file) {
+    const resolved = path.resolve(root, file.endsWith('.js') ? file : `${file}.js`)
+    if (modules.has(resolved)) return modules.get(resolved).exports
+    const module = { exports: {} }
+    modules.set(resolved, module)
+    vm.runInNewContext(fs.readFileSync(resolved, 'utf8'), {
+      module, exports: module.exports, wx: c.wx, getApp: () => instance,
+      App: value => { instance = value }, Page: value => { page = value },
+      console: { error: (...args) => c.errors.push(args), warn: (...args) => c.errors.push(args) },
+      setTimeout, clearTimeout,
+      require: name => load(path.relative(root, path.resolve(path.dirname(resolved), name)))
+    }, { filename: resolved })
+    return module.exports
+  }
+  load('app')
+  Object.assign(c, { app: instance, api: load('utils/api'), backend: load('utils/backend'), notifications: load('utils/notifications') })
+  c.start = async (options = { path: 'pages/home/index' }) => {
+    instance.onLaunch(options)
+    instance.onShow(options)
+    await instance.globalData.cloudReady
+    await tick()
+  }
+  c.page = name => {
+    modules.delete(path.resolve(root, `pages/${name}/index.js`))
+    load(`pages/${name}/index`)
+    page.setData = value => Object.assign(page.data, value)
+    return page
+  }
+  c.switchTo = async provider => {
+    const admin = c.page('admin')
+    await admin.loadData()
+    c.confirm = true
+    await admin.changeBackend(event(provider))
+    return admin
+  }
+  return c
+}
+
+test('默认 Java，本机按钮双向切换；其他设备不变，热启动保留、冷启动恢复 Java', async () => {
+  const a = client(), b = client()
+  await Promise.all([a.start(), b.start()])
+  assert.equal(a.backend.provider(), 'cloudrun')
+  assert.ok(a.calls.every(call => call.kind === 'container'))
+  const before = new Map([...a.storage].map(([key, value]) => [key, JSON.stringify(value)]))
+  await a.switchTo('cloudfunction')
+  assert.equal(a.backend.provider(), 'cloudfunction')
+  assert.equal(b.backend.provider(), 'cloudrun')
+  for (const [key, value] of before) assert.equal(JSON.stringify(a.storage.get(key)), value)
+  // 只允许新增目标通道的通知缓存，不能写入持久化后端选择。
+  for (const key of a.storage.keys()) {
+    if (!before.has(key)) assert.ok(key.startsWith('snacks_notification_config_cache_v2:'))
+  }
+  assert.equal(a.actions.at(-1)[0], 'reLaunch')
+  await a.api.request('listStores'); assert.equal(a.calls.at(-1).kind, 'function')
+  a.app.onShow({ path: 'pages/profile/index', scene: 1007 })
+  assert.equal(a.backend.provider(), 'cloudfunction')
+  const panel = a.page('admin'); await panel.loadData()
+  assert.equal(panel.data.backendProvider, 'cloudfunction')
+  await a.switchTo('cloudrun')
+  assert.equal(a.backend.provider(), 'cloudrun')
+  await a.switchTo('cloudfunction')
+  await a.start()
+  assert.equal(a.backend.provider(), 'cloudrun')
+  const restarted = client({ storage: a.storage }); await restarted.start()
+  assert.equal(restarted.backend.provider(), 'cloudrun')
+})
+
+test('当前角色非超级管理员不显示切换；绕过页面也不能切换', async () => {
+  const c = client({ role: 'PLATFORM_ADMIN' }); await c.start()
+  const admin = c.page('admin'); await admin.loadData()
+  assert.equal(admin.data.canSwitchBackend, false)
+  c.confirm = true; await admin.changeBackend(event('cloudfunction'))
+  await assert.rejects(c.app.switchBackend('cloudfunction'), /只有当前后端的超级管理员/)
+  assert.equal(c.backend.provider(), 'cloudrun')
+  assert.equal(c.calls.some(call => call.kind === 'function'), false)
+})
+
+test('目标无超级管理员权限或身份不一致时保留原后端', async () => {
+  for (const identity of [{ openid: 'same-user', platformRole: null }, { openid: 'another-user', platformRole: 'SUPER_ADMIN' }]) {
+    const c = client(); await c.start()
+    c.hook = (kind, opts) => kind === 'function' && opts.data.action === 'getMyIdentity'
+      ? { result: { success: true, data: identity } } : undefined
+    await c.switchTo('cloudfunction')
+    assert.equal(c.backend.provider(), 'cloudrun')
+    assert.match(c.modals.at(-1).content, /目标后端/)
+    assert.equal(c.actions.some(action => action[0] === 'reLaunch'), false)
   }
 })
 
-test('实际 App 切换清除角标、重建页面栈；冷启动不沿用测试选择', async () => {
-  mockSwitchRemotes()
-  const source = fs.readFileSync(require.resolve('../miniprogram/app'), 'utf8')
-  vm.runInNewContext(source, {
-    App: value => { app = value }, wx, console,
-    require: name => name === './utils/api' ? api : name === './utils/backend' ? backend : {
-      primeNotificationConfig: async () => {}, updateNotificationConfigCache: notifications.updateNotificationConfigCache
+test('取消确认、确认框 SDK 错误均不请求目标；显示 errMsg 与错误码', async () => {
+  const c = client(); await c.start()
+  const admin = c.page('admin'); await admin.loadData()
+  let count = c.calls.length
+  await admin.changeBackend(event('cloudfunction'))
+  assert.equal(c.calls.length, count)
+  assert.equal(admin.data.switching, false)
+  c.wx.showModal = opts => {
+    c.modals.push(opts)
+    if (opts.fail) opts.fail({ errMsg: 'showModal:fail SDK错误', errCode: 0 })
+  }
+  await admin.changeBackend(event('cloudfunction'))
+  assert.equal(c.calls.length, count)
+  assert.match(c.modals.at(-1).content, /显示切换确认框.*SDK错误.*0/)
+})
+
+test('检查过程中防重复点击和新请求，有在途业务请求时不能切换', async () => {
+  const c = client(); await c.start()
+  let release
+  c.hook = (kind, opts) => opts.data.action === 'listStores' ? new Promise(resolve => { release = resolve }) : undefined
+  const pending = c.api.request('listStores'); await tick()
+  await assert.rejects(c.app.switchBackend('cloudfunction'), /还有请求/)
+  release({ statusCode: 200, data: { success: true, data: [] } }); await pending
+  c.hook = (kind, opts) => kind === 'function' && opts.data.action === 'initCollections'
+    ? new Promise(resolve => { release = resolve }) : undefined
+  const admin = c.page('admin'); await admin.loadData(); c.confirm = true
+  const changing = admin.changeBackend(event('cloudfunction')); await tick()
+  const count = c.calls.length
+  await admin.changeBackend(event('cloudfunction'))
+  await assert.rejects(c.api.request('createOrder'), /正在检查后端切换/)
+  assert.equal(c.calls.length, count)
+  release({ result: { success: true, data: true } }); await changing
+  assert.equal(c.backend.provider(), 'cloudfunction')
+  assert.equal(c.app.globalData.backendSwitchState, '')
+})
+
+test('目标连接失败或返回 HTML 保留原后端，不自动回退或重发', async () => {
+  for (const response of [null, { statusCode: 502, data: '<html>bad gateway</html>' }]) {
+    const c = client(); await c.start(); await c.switchTo('cloudfunction')
+    c.hook = kind => {
+      if (kind !== 'container') return
+      if (response) return response
+      throw { errMsg: 'callContainer:fail timeout', errCode: -501 }
     }
-  })
-  app.onLaunch({ path: 'pages/home/index' })
-  await app.globalData.cloudReady
-  assert.equal(app.globalData.cloudRun.env, 'prod-d0gs4er2552d66779')
-  const lifecycle = []
-  wx.removeTabBarBadge = opts => { lifecycle.push('badge'); opts.complete() }
-  wx.reLaunch = opts => { lifecycle.push(opts.url); opts.success() }
-  await app.switchBackend('cloudrun', 'java-service')
-  assert.deepEqual(lifecycle, ['badge', '/pages/admin/index'])
-  assert.equal(backend.provider(), 'cloudrun')
-  assert.equal(backend.label(), '云托管 · Java')
-  app.onLaunch({ path: 'pages/home/index' })
-  await app.globalData.cloudReady
-  assert.equal(backend.provider(), 'cloudfunction')
+    await c.switchTo('cloudrun')
+    assert.equal(c.backend.provider(), 'cloudfunction')
+    assert.match(c.modals.at(-1).content, response ? /格式不正确/ : /timeout.*501/)
+    assert.equal(c.app.globalData.backendSwitchState, '')
+  }
+})
+
+test('目标通知模板缺失可切换但不借用旧模板；其他通知错误阻断切换', async () => {
+  for (const message of ['通知模板尚未初始化', '通知服务异常']) {
+    const c = client(); await c.start(); await c.switchTo('cloudfunction')
+    c.notifications.updateNotificationConfigCache({ enabled: true, templateId: 'old-template' })
+    c.hook = (kind, opts) => kind === 'container' && opts.data.action === 'getNotificationConfig'
+      ? { statusCode: 200, data: { success: false, message } } : undefined
+    await c.switchTo('cloudrun')
+    assert.equal(c.backend.provider(), message === '通知模板尚未初始化' ? 'cloudrun' : 'cloudfunction')
+    if (message === '通知模板尚未初始化') {
+      assert.equal((await c.notifications.requestSharedSubscription('ORDER_SUBMIT', 'BUYER')).configured, false)
+    }
+  }
+})
+
+test('页面重载失败恢复原后端与通知命名空间', async () => {
+  const c = client(); await c.start()
+  c.notifications.updateNotificationConfigCache({ enabled: true, templateId: 'java-template' })
+  c.wx.reLaunch = opts => opts.fail({ errMsg: 'reLaunch:fail' })
+  await c.switchTo('cloudfunction')
+  assert.equal(c.backend.provider(), 'cloudrun')
+  assert.match(c.modals.at(-1).content, /页面重载失败.*恢复原后端/)
+  assert.equal(c.app.globalData.backendSwitchState, '')
+  let called = false
+  c.wx.requestSubscribeMessage = opts => { called = true; assert.equal(opts.tmplIds[0], 'java-template'); opts.success({ 'java-template': 'reject' }) }
+  await c.notifications.requestSharedSubscription('ORDER_SUBMIT', 'BUYER')
+  assert.equal(called, true)
+})
+
+test('Java 启动失败阻断业务且不回退，主动重试不会重发原下单', async () => {
+  const c = client()
+  c.hook = () => { throw { errMsg: 'callContainer:fail timeout' } }
+  c.app.onLaunch()
+  await assert.rejects(c.api.request('createOrder'), /timeout/)
+  await tick()
+  assert.equal(c.app.globalData.startupState, 'failed')
+  assert.equal(c.backend.provider(), 'cloudrun')
+  assert.equal(c.calls.length, 1)
+  c.hook = null
+  await c.app.startBackend(true); await tick()
+  assert.equal(c.app.globalData.startupState, 'ready')
+  assert.equal(c.calls.some(call => call.opts.data.action === 'createOrder'), false)
+})
+
+test('普通页面恢复不误判旧库，图片等待启动并仍使用原云存储', async () => {
+  const c = client(); let release, uploaded
+  c.wx.cloud.init = () => new Promise(resolve => { release = resolve })
+  c.wx.cloud.uploadFile = async opts => { uploaded = opts; return { fileID: 'cloud://original/image' } }
+  c.app.onLaunch({ path: 'pages/profile/index', scene: 1007 })
+  const image = c.api.uploadProductImage('/tmp/product.png')
+  await tick(); assert.equal(uploaded, undefined)
+  release(); assert.equal(await image, 'cloud://original/image')
+  assert.equal(uploaded.config.env, 'smooth-kiwi-d3gjwm74v84784b65')
+  assert.equal(c.app.globalData.backendEntryError, '')
+  c.app.onShow({ path: 'pages/admin/index', scene: 1007 })
+  assert.equal(c.app.globalData.backendEntryError, '')
+})
+
+test('未读数失败不隐藏当前业务管理员身份', async () => {
+  const c = client(); await c.start()
+  c.hook = (kind, opts) => {
+    if (opts.data.action === 'getUnreadNotificationCount') throw new Error('未读数失败')
+  }
+  const profile = c.page('profile'); await profile.loadData(); await tick()
+  assert.equal(profile.data.identity.platformRole, 'SUPER_ADMIN')
+  assert.equal(profile.data.unreadCount, 0)
+  assert.equal(profile.data.backendLabel, '云托管 · Java')
 })

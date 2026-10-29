@@ -97,7 +97,7 @@ function initLocalData() {
 
 function cloudEnabled() { return backend.provider() !== 'local' }
 
-/** 请求固定使用发起时的后端；切换检查期间禁止新的业务请求。 */
+/** 固定请求发起时的后端，等待初始化；本机切换检查期间禁止新的业务请求。 */
 async function request(action, data = {}, config = backend.settings()) {
   if (config.backendSwitchState === 'checking') {
     throw new Error('正在检查后端切换，请稍后再试')
@@ -115,6 +115,8 @@ async function request(action, data = {}, config = backend.settings()) {
   }
   config.pendingBackendRequests = (config.pendingBackendRequests || 0) + 1
   try {
+    if (snapshot.useCloud && snapshot.cloudReady) await snapshot.cloudReady
+    assertCurrent()
     const result = await requestSnapshot(action, data, snapshot, assertCurrent)
     assertCurrent()
     return result
@@ -128,7 +130,6 @@ async function requestSnapshot(action, data, config, assertCurrent) {
   if (config.backendEntryError) throw new Error(config.backendEntryError)
   if (provider === 'local') return action === 'initCollections' ? true : localRequest(action, data)
   if (!wx.cloud) throw new Error('当前微信版本不支持云服务，请升级微信')
-  if (action !== 'initCollections' && config.cloudReady) await config.cloudReady
   assertCurrent()
   let response
   const payload = { ...data, action }
@@ -170,6 +171,12 @@ async function requestSnapshot(action, data, config, assertCurrent) {
   throw error
 }
 
+/** 仅供 App 启动调用，不经过普通请求的初始化等待，避免 Promise 等待自身。 */
+function initializeBackend(config) {
+  const snapshot = { ...config, cloudRun: { ...(config.cloudRun || {}) }, backendEntryError: '' }
+  return requestSnapshot('initCollections', {}, snapshot, () => {})
+}
+
 /** 仅切换本次运行的后端；两边均验证超级管理员，不复制权限或业务数据。 */
 async function switchBackend(target, service, activate, config = backend.settings()) {
   if (!config.useCloud || !['cloudfunction', 'cloudrun'].includes(target)) {
@@ -207,7 +214,7 @@ async function switchBackend(target, service, activate, config = backend.setting
     if (!operator || operator.platformRole !== 'SUPER_ADMIN' || !operator.openid) {
       throw new Error('只有当前后端的超级管理员可以切换测试后端')
     }
-    candidate.cloudReady = request('initCollections', {}, candidate)
+    candidate.cloudReady = initializeBackend(candidate)
     await candidate.cloudReady
     const identity = await request('getMyIdentity', {}, candidate)
     if (!identity || identity.platformRole !== 'SUPER_ADMIN' || identity.openid !== operator.openid) {
@@ -519,6 +526,7 @@ function localRequest(action, data) {
 
 
 async function uploadProductImage(tempFilePath) {
+  await backend.ready()
   if (cloudEnabled()) {
     if (!wx.cloud || typeof wx.cloud.uploadFile !== 'function') throw new Error('当前微信版本不支持云存储')
     const suffix = (tempFilePath.match(/\.[a-zA-Z0-9]+$/) || ['.jpg'])[0]
@@ -549,4 +557,4 @@ function resetDemoData() {
   initLocalData()
 }
 
-module.exports = { request, switchBackend, initLocalData, uploadProductImage, getProfile, saveProfile, resetDemoData, KEYS }
+module.exports = { request, initializeBackend, switchBackend, initLocalData, uploadProductImage, getProfile, saveProfile, resetDemoData, KEYS }

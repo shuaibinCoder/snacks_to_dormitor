@@ -18,6 +18,7 @@
     <button class="menu-item share-row" open-type="share"><view class="menu-icon purple-bg">📣</view><text>分享小程序</text><text class="menu-arrow">›</text></button>
     <view class="menu-item" bindtap="about"><view class="menu-icon gray-bg">💡</view><text>关于与规则</text><text class="menu-arrow">›</text></view>
   </view>
+  <view class="identity-hint">本次运行后端：{{backendLabel || '正在获取'}}。本机测试切换不影响他人，冷启动默认 Java 云托管。</view>
   <view class="identity-hint">身份ID用于平台授权运营或管理员角色，请勿随意公开。</view>
   <view class="debug-reset" bindtap="resetDemo">重置本机体验数据</view>
 </view>
