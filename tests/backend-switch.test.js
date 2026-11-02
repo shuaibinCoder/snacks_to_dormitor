@@ -214,6 +214,7 @@ function client({ role = 'SUPER_ADMIN', storage = new Map() } = {}) {
     showToast: opts => c.actions.push(['toast', opts.title]),
     reLaunch: opts => { c.actions.push(['reLaunch', opts.url]); if (opts.success) opts.success() },
     navigateTo: opts => c.actions.push(['navigateTo', opts.url]),
+    setNavigationBarTitle: opts => c.actions.push(['title', opts.title]),
     removeTabBarBadge: opts => { if (opts.complete) opts.complete() },
     stopPullDownRefresh: () => {}
   }
@@ -242,7 +243,10 @@ function client({ role = 'SUPER_ADMIN', storage = new Map() } = {}) {
   c.page = name => {
     modules.delete(path.resolve(root, `pages/${name}/index.js`))
     load(`pages/${name}/index`)
-    page.setData = value => Object.assign(page.data, value)
+    page.setData = (value, callback) => {
+      Object.assign(page.data, value)
+      if (callback) callback()
+    }
     return page
   }
   c.switchTo = async provider => {
@@ -412,6 +416,61 @@ test('普通页面恢复不误判旧库，图片等待启动并仍使用原云�
   assert.equal(c.app.globalData.backendEntryError, '')
   c.app.onShow({ path: 'pages/admin/index', scene: 1007 })
   assert.equal(c.app.globalData.backendEntryError, '')
+})
+
+// 通过真实首页入口、详情 Page 和 API 解包验证双后端统一的店铺详情结构。
+for (const provider of ['cloudrun', 'cloudfunction']) {
+  test(`${provider} 店铺入口可加载名称、商品分类与价格，空店铺也可进入`, async () => {
+    for (const products of [[{ _id: 'product', name: '薯片', category: '零食', price: 350, stock: 3 }], []]) {
+      const c = client(); await c.start()
+      if (provider === 'cloudfunction') await c.switchTo(provider)
+      c.calls.length = 0; c.actions.length = 0
+      const store = { _id: 'store', name: '测试小店', isOpen: true, minimumOrder: 500, deliveryFee: 0 }
+      c.hook = (kind, opts) => {
+        let data
+        if (opts.data.action === 'listStores') data = [store]
+        else if (opts.data.action === 'getStore') {
+          assert.equal(opts.data.storeId, store._id)
+          data = { store, products }
+        } else return
+        return kind === 'container' ? { statusCode: 200, data: { success: true, data } } : { result: { success: true, data } }
+      }
+      const home = c.page('home'); await home.loadStores()
+      home.openStore({ currentTarget: { dataset: { id: home.data.stores[0]._id } } })
+      assert.deepEqual(c.actions.at(-1), ['navigateTo', '/pages/store/index?id=store'])
+      const detail = c.page('store'); detail.onLoad({ id: 'store' }); await tick()
+      assert.equal(detail.data.loadError, '')
+      assert.equal(detail.data.loading, false)
+      assert.equal(detail.data.store._id, store._id)
+      assert.equal(detail.data.store.name, store.name)
+      assert.equal(detail.data.store.minimumOrderText, '5.00')
+      assert.equal(detail.data.store.deliveryFeeText, '免配送费')
+      assert.deepEqual(c.actions.at(-1), ['title', store.name])
+      assert.equal(detail.data.displayProducts.length, products.length)
+      assert.deepEqual(Array.from(detail.data.categories), products.length ? ['全部', '零食'] : ['全部'])
+      if (products.length) {
+        assert.equal(detail.data.displayProducts[0].priceText, '3.50')
+        detail.selectCategory({ currentTarget: { dataset: { category: '零食' } } })
+        assert.equal(detail.data.displayProducts[0]._id, 'product')
+      }
+      assert.equal(c.actions.some(action => action[0] === 'toast'), false)
+      assert.equal(c.calls.filter(call => call.opts.data.action === 'getStore').length, 1)
+      assert.ok(c.calls.every(call => call.kind === (provider === 'cloudrun' ? 'container' : 'function')))
+    }
+  })
+}
+
+test('店铺不可访问时保留后端错误，不自动跨库查询', async () => {
+  const c = client(); await c.start(); c.calls.length = 0
+  c.hook = (kind, opts) => opts.data.action === 'getStore'
+    ? { statusCode: 200, data: { success: false, message: '店铺不存在或已暂停' } } : undefined
+  const detail = c.page('store'); detail.onLoad({ id: 'missing' }); await tick()
+  assert.equal(detail.data.loading, false)
+  assert.equal(detail.data.store, null)
+  assert.equal(detail.data.loadError, '店铺不存在或已暂停')
+  assert.deepEqual(c.actions.at(-1), ['toast', '店铺不存在或已暂停'])
+  assert.equal(c.calls.length, 1)
+  assert.equal(c.calls[0].kind, 'container')
 })
 
 test('未读数失败不隐藏当前业务管理员身份', async () => {
