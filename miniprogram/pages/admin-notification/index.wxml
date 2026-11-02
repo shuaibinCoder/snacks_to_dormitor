@@ -35,8 +35,9 @@
     <block wx:if="{{latestDeliveries.length}}">
       <view class="delivery-row" wx:for="{{latestDeliveries}}" wx:key="_id">
         <view><text class="delivery-status status-{{item.deliveryStatus}}">{{item.deliveryStatusLabel}}</text><text class="delivery-time">{{item.createdAtText}}</text></view>
-        <view wx:if="{{item.lastErrorMessage}}" class="delivery-error">{{item.lastErrorCode ? item.lastErrorCode + ' · ' : ''}}{{item.lastErrorMessage}}</view>
-        <view wx:if="{{!item.lastErrorMessage}}" class="delivery-success">微信接口已返回成功</view>
+        <view wx:if="{{item.lastErrorMessage || item.lastErrorCode}}" class="delivery-error">{{item.lastErrorCode ? item.lastErrorCode + ' · ' : ''}}{{item.lastErrorMessage}}</view>
+        <view wx:if="{{item.deliveryStatus === 'SUCCESS'}}" class="delivery-success">微信接口已返回成功</view>
+        <view wx:elif="{{!item.lastErrorMessage && !item.lastErrorCode}}" class="delivery-error">尚未确认发送成功，请刷新诊断；不要连续点击重试。</view>
       </view>
     </block>
     <view wx:if="{{!latestDeliveries.length}}" class="no-delivery">还没有微信推送记录，点击上方测试按钮验证。</view>

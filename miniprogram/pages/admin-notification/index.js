@@ -28,7 +28,8 @@ Page({
         diagnostics: this.decorateDiagnostics(diagnostics),
         latestDeliveries: (diagnostics.latestDeliveries || []).map(item => ({ ...item, createdAtText: formatTime(item.createdAt) }))
       })
-    } catch (error) { wx.showToast({ title: error.message || '加载失败', icon: 'none' }) }
+      return diagnostics
+    } catch (error) { wx.showToast({ title: error.message || error.errMsg || '加载失败', icon: 'none' }); return null }
   },
   decorateDiagnostics(diagnostics) {
     const roleOrder = ['BUYER']
@@ -66,28 +67,51 @@ Page({
     } catch (error) { wx.showToast({ title: error.message || '保存失败', icon: 'none' }) }
     finally { this.setData({ saving: false }) }
   },
+  // 只匹配本次通知，避免把另一条历史记录的成功或失败当成本次结果。
+  testResult(notification, diagnostics) {
+    const delivery = notification._id && ((diagnostics && diagnostics.latestDeliveries) || [])
+      .find(item => item.notificationId === notification._id && item.channel === 'WECHAT_SUBSCRIBE')
+    if (notification.wechatSent === true || (delivery && delivery.deliveryStatus === 'SUCCESS')) {
+      return { title: '测试消息已发送', content: '微信接口已确认成功，请返回微信首页，在“服务通知”中查看；如果未立即出现，请稍等片刻。' }
+    }
+    const status = delivery && delivery.deliveryStatus
+    const code = String(delivery && delivery.lastErrorCode || '')
+    const message = delivery && delivery.lastErrorMessage || '尚未取得本次推送的明确结果，请刷新诊断或检查云托管日志。'
+    const hints = {
+      '-604101': '请在云托管控制台配置云调用权限 /cgi-bin/message/subscribe/send，并核对开放接口服务是否开启。',
+      '48001': '请核对当前小程序的订阅消息接口权限及云托管云调用权限。',
+      '41001': 'Java 使用云托管免令牌调用，请核对开放接口服务是否开启，并按控制台要求使服务版本配置生效。',
+      '40001': '请核对云托管开放接口服务及其所属小程序，不要在前端传入 access_token。',
+      '40037': '请核对模板 ID 是否属于当前小程序并已在平台模板列表中启用。',
+      '43101': '微信未找到可用订阅次数；先核对模板和账号，再由本人主动授权，不能复用已消耗的授权。',
+      '47003': '请核对关键词编号、字段类型和内容长度是否与公众平台模板完全一致。'
+    }
+    const unknown = !['FAILED_FINAL', 'SKIPPED'].includes(status)
+    return {
+      title: unknown ? '推送结果尚未确认' : status === 'SKIPPED' ? '测试消息未推送' : '微信推送失败',
+      content: `站内测试消息已生成。\n${code ? code + ' · ' : ''}${message}${hints[code] ? '\n\n' + hints[code] : ''}\n\n${unknown ? '请先查看微信“服务通知”，不要连续点击；系统不会自动重发。' : '请处理上述原因后再主动测试，系统不会自动重发。'}`
+    }
+  },
   async testSubscribe() {
     if (this.data.testing) return
     this.setData({ testing: true })
-    const result = await requestSharedSubscription('ADMIN_TEMPLATE_TEST', 'BUYER')
-    if (result.permission !== 'ACCEPT') {
-      showSubscribeFeedback(result, '订阅授权成功')
-      this.setData({ testing: false })
-      return
-    }
-    wx.showLoading({ title: '发送测试消息' })
     try {
-      const notification = await api.request('sendTestNotification', { subscriptionRole: 'BUYER' })
-      if (notification.wechatSent) {
-        wx.showModal({ title: '测试消息已发送', content: '请返回微信首页，在“服务通知”中查看测试消息。如果没有立即出现，请稍等片刻。', showCancel: false })
-      } else {
-        wx.showModal({ title: '授权成功但推送失败', content: '已生成站内测试消息，但微信推送未成功。请查看下方“最近推送记录”的失败原因。', showCancel: false })
+      // 授权 API 仍在点击手势中同步调用，前面不插入异步预检。
+      const result = await requestSharedSubscription('ADMIN_TEMPLATE_TEST', 'BUYER')
+      if (result.permission !== 'ACCEPT') {
+        showSubscribeFeedback(result, '订阅授权成功')
+        return
       }
-      await this.loadData()
+      wx.showLoading({ title: '发送测试消息' })
+      const notification = await api.request('sendTestNotification', { subscriptionRole: 'BUYER' })
+      const diagnostics = await this.loadData()
+      wx.hideLoading()
+      wx.showModal({ ...this.testResult(notification, diagnostics), showCancel: false })
     } catch (error) {
-      wx.showModal({ title: '测试发送失败', content: error.message || '请检查云函数部署和模板配置。', showCancel: false })
+      wx.hideLoading()
+      wx.showModal({ title: '测试请求未完成', content: error.message || error.errMsg || '请检查当前后端服务与推送诊断，不要连续点击重试。', showCancel: false })
     } finally {
-      wx.hideLoading(); this.setData({ testing: false })
+      this.setData({ testing: false })
     }
   },
   async refreshConfig() { await primeNotificationConfig(true); await this.loadData(); wx.showToast({ title: '配置已刷新' }) }
